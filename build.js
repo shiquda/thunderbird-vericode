@@ -1,69 +1,88 @@
 /**
- * Thunderbird Vericode - 打包脚本
- * 用于将插件打包为XPI文件
+ * Thunderbird Vericode - Build Script
+ * Used to package the plugin into an XPI file
+ * Only includes files necessary for plugin operation
  */
 
-const fs = require("fs");
-const path = require("path");
-const archiver = require("archiver");
+import fs from "fs";
+import path from "path";
+import archiver from "archiver";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
-// 读取manifest.json获取版本信息
+// Get current file path and directory in ES module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Read version info from manifest.json
 const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
 const version = manifest.version;
 
-// 创建输出目录
+// Create output directory
 const outputDir = path.join(__dirname, "dist");
 if (!fs.existsSync(outputDir)) {
 	fs.mkdirSync(outputDir);
 }
 
-// 输出文件路径
+// Output file path
 const outputFile = path.join(outputDir, `thunderbird-vericode-${version}.xpi`);
 
-// 创建文件写入流
+// Create file write stream
 const output = fs.createWriteStream(outputFile);
 const archive = archiver("zip", {
-	zlib: { level: 9 }, // 最高压缩级别
+	zlib: { level: 9 }, // Maximum compression level
 });
 
-// 监听输出流结束事件
+// Listen for output stream end event
 output.on("close", () => {
-	console.log(`XPI文件创建成功: ${outputFile}`);
-	console.log(`文件大小: ${archive.pointer()} 字节`);
+	console.log(`XPI file created successfully: ${outputFile}`);
+	console.log(`File size: ${(archive.pointer() / 1024).toFixed(2)} KB`);
 });
 
-// 监听错误事件
+// Listen for error events
 archive.on("error", (err) => {
 	throw err;
 });
 
-// 将输出流管道连接到归档
+// Pipe output stream to archive
 archive.pipe(output);
 
-// 需要包含的文件和目录
-const filesToInclude = ["manifest.json", "background.js", "icons", "options"];
+// Define necessary plugin files
+const necessaryFiles = [
+	// Plugin manifest file, defines basic info and permissions
+	{ path: "manifest.json", type: "file" },
 
-// 添加文件到归档
-filesToInclude.forEach((item) => {
-	const itemPath = path.join(__dirname, item);
+	// Background script containing main plugin logic
+	{ path: "background.js", type: "file" },
+
+	// Icon files for toolbar and plugin management page
+	{ path: "icons", type: "directory" },
+
+	// Options page for plugin configuration
+	{ path: "options", type: "directory" },
+
+	// License file
+	{ path: "LICENSE", type: "file" },
+];
+
+// Add necessary files to archive
+necessaryFiles.forEach((item) => {
+	const itemPath = path.join(__dirname, item.path);
 
 	if (fs.existsSync(itemPath)) {
-		const stats = fs.statSync(itemPath);
-
-		if (stats.isDirectory()) {
-			// 添加目录
-			archive.directory(itemPath, item);
+		if (item.type === "directory") {
+			// Add directory
+			archive.directory(itemPath, item.path);
+			console.log(`Adding directory: ${item.path}`);
 		} else {
-			// 添加文件
-			archive.file(itemPath, { name: item });
+			// Add file
+			archive.file(itemPath, { name: item.path });
+			console.log(`Adding file: ${item.path}`);
 		}
 	} else {
-		console.warn(`警告: ${item} 不存在，已跳过`);
+		console.warn(`Warning: ${item.path} does not exist, skipped`);
 	}
 });
 
-// 添加README文件
-archive.file("README.md", { name: "README.md" });
-
-// 完成归档
+// Finalize archive
 archive.finalize();

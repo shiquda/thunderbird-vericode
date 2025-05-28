@@ -1,11 +1,12 @@
 {
 	"name": "thunderbird-vericode",
-	"version": "1.0.0",
-	"description": "Thunderbird插件，用于检测邮件中的验证码并提供复制功能",
+	"version": "0.0.2",
+	"description": "Thunderbird plugin for detecting verification codes in emails and providing copy functionality",
 	"main": "background.js",
+	"type": "module",
 	"scripts": {
 		"build": "node build.js",
-		"lint": "eslint ."
+		"test": "node test/test.js"
 	},
 	"keywords": [
 		"thunderbird",
@@ -14,10 +15,11 @@
 		"verification-code",
 		"email"
 	],
-	"author": "Vericode Developer",
+	"author": "shiquda",
 	"license": "MIT",
 	"devDependencies": {
 		"archiver": "^5.3.1",
-		"eslint": "^8.40.0"
-	}
+		"mailparser": "^3.6.5"
+	},
+	"packageManager": "pnpm@8.15.5+sha1.a58c038faac410c947dbdb93eb30994037d0fce2"
 }

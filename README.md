@@ -42,17 +42,13 @@ Monitors incoming emails and uses regular expressions to detect verification cod
 4. Click the "Options" button
 5. In the settings page, you can:
    - Enable or disable verification code detection
-   - Customize the regular expression pattern for verification codes
    - Set the notification display time
-   - Click "Restore Defaults" to reset all settings to their default values
 
-### Default Regular Expression
+### Verfication Code Detection
 
-The default verification code detection is context-aware. It looks for 4-8 digit numbers that appear near context words like "code", "verification", "valid", "auth", "token", "验证码", etc.
+The plugin uses a context-aware approach to detect verification codes. It looks for 4-8 digit numbers that appear near context words like "code", "verification", "valid", "auth", "token", "验证码", etc.
 
 This makes detection more accurate by only matching numbers that are likely to be verification codes based on surrounding text. You can modify this regular expression based on your needs.
-
-If you prefer a simpler approach, you can use `\b[0-9]{4,8}\b` which matches any 4-8 digit numbers regardless of context.
 
 ## Privacy Statement
 
@@ -63,8 +59,19 @@ If you prefer a simpler approach, you can use `\b[0-9]{4,8}\b` which matches any
 ## To Do
 
 - [ ] Add an option to enable automatically copy the code to clipboard
-- [ ] Refine the regex
+- [x] Refine the regex
 - [ ] Refine the notification interaction
+
+## Development
+
+1. Clone this repository
+2. Run `pnpm install` to install the dependencies
+3. Run `pnpm run build` to pack the plugin into a `.xpi` file
+4. To test the code detection algorithm:
+   a. You can export your email from thunderbird and put it in the `test/data` folder for testing.
+   b. Update your algorithm in `test/test.js`
+   c. Run `pnpm run test > test.txt` to test the code detection algorithm
+   d. The test results will be saved in `test.txt`
 
 ## License
 

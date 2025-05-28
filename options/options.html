@@ -18,14 +18,6 @@
     </div>
     
     <div class="form-group">
-      <label for="verificationRegex">Verification code regular expression:</label>
-      <input type="text" id="verificationRegex" name="verificationRegex">
-      <div class="description">Define the regular expression pattern for identifying verification codes</div>
-      <div class="example">Default pattern looks for 4-8 digit numbers near context words like "code", "verification", "valid", etc.</div>
-      <div class="example">Simple pattern example: \b[0-9]{4,8}\b (matches any 4-8 digit numbers)</div>
-    </div>
-    
-    <div class="form-group">
       <label for="notificationTimeout">Notification display time (milliseconds):</label>
       <input type="number" id="notificationTimeout" name="notificationTimeout" min="0" step="1000">
       <div class="description">Time before notification automatically closes (0 means no auto-close)</div>

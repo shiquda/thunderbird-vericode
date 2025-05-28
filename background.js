@@ -3,15 +3,50 @@
  * Listens for new emails, detects verification codes, and adds copy functionality to system notifications
  */
 
-// Default verification code regular expression
-// Matches 4-8 digit numbers that appear near context words like code, verification, valid, etc.
-const DEFAULT_VERIFICATION_REGEX =
-	"(?:[Cc][Oo][Dd][Ee]|[Vv][Ee][Rr][Ii](?:[Ff][Ii][Cc][Aa][Tt][Ii][Oo][Nn])?|[Pp][Aa][Ss][Ss](?:[Ww][Oo][Rr][Dd])?|[Aa][Uu][Tt][Hh]|[Vv][Aa][Ll][Ii][Dd]|[Tt][Oo][Kk][Ee][Nn]|验证码|确认码|校验码|认证码)[^\\d]{0,30}?\\b([0-9]{4,8})\\b|\\b([0-9]{4,8})\\b[^\\d]{0,30}?(?:[Cc][Oo][Dd][Ee]|[Vv][Ee][Rr][Ii](?:[Ff][Ii][Cc][Aa][Tt][Ii][Oo][Nn])?|[Pp][Aa][Ss][Ss](?:[Ww][Oo][Rr][Dd])?|[Aa][Uu][Tt][Hh]|[Vv][Aa][Ll][Ii][Dd]|[Tt][Oo][Kk][Ee][Nn]|验证码|确认码|校验码|认证码)";
+// Verification keyword list - used to identify verification code context
+const VERIFICATION_KEYWORDS = [
+	// English keywords
+	"code",
+	"verif",
+	"login",
+	"validat",
+	"authenticate",
+	"authorization",
+	"authorize",
+	"one-time",
+	"onetime",
+	"one time",
+	"two-factor",
+	"two factor",
+	// Chinese keywords
+	"码",
+	"验证",
+	"校验",
+	"认证",
+	"动态",
+	"登录",
+	"口令",
+	"授权",
+	"动态密",
+	"临时密",
+	"一次性密",
+	"双重验证",
+	"两步验证",
+];
+
+// Verification code patterns - used to identify possible verification code formats
+const CODE_PATTERNS = [
+	{ regex: /\b[0-9]{6}\b/g, priority: 1 }, // 6-digit number (most common)
+	{ regex: /\b[0-9]{4}\b/g, priority: 2 }, // 4-digit number
+	{ regex: /\b[0-9]{8}\b/g, priority: 3 }, // 8-digit number
+	// { regex: /\b(?=[a-zA-Z]*[0-9])[a-zA-Z0-9]{4,8}\b/g, priority: 4 }, // 4-8 character alphanumeric combination with at least 1 digit
+	{ regex: /\b[0-9]{5}\b/g, priority: 5 }, // 5-digit number
+	{ regex: /\b[0-9]{7}\b/g, priority: 6 }, // 7-digit number
+];
 
 // Store settings
 let settings = {
-	verificationRegex: DEFAULT_VERIFICATION_REGEX,
-	notificationTimeout: 10000, // Notification display time (milliseconds)
+	notificationTimeout: 15000, // Notification display time (milliseconds)
 	enabled: true,
 };
 
@@ -19,8 +54,7 @@ let settings = {
 function loadSettings() {
 	return browser.storage.local
 		.get({
-			verificationRegex: DEFAULT_VERIFICATION_REGEX,
-			notificationTimeout: 10000,
+			notificationTimeout: 15000,
 			enabled: true,
 		})
 		.then((result) => {
@@ -30,21 +64,104 @@ function loadSettings() {
 		});
 }
 
-// Extract verification code from text
+// Enhanced verification code extraction function
 function extractVerificationCode(text) {
 	if (!text) return null;
+	const textLower = text.toLowerCase();
+	let candidates = [];
 
-	try {
-		const regex = new RegExp(settings.verificationRegex);
-		const match = text.match(regex);
-		if (!match) return null;
-
-		// Return the first capturing group that has a value (either group 1 or 2)
-		return match[1] || match[2] || match[0];
-	} catch (error) {
-		console.error("Regular expression error:", error);
-		return null;
+	// 1. Find positions of all keywords
+	let keywordPositions = [];
+	for (const keyword of VERIFICATION_KEYWORDS) {
+		let keywordLower = keyword.toLowerCase();
+		let pos = textLower.indexOf(keywordLower);
+		while (pos !== -1) {
+			keywordPositions.push({
+				keyword: keyword,
+				index: pos,
+				length: keyword.length,
+			});
+			pos = textLower.indexOf(keywordLower, pos + 1);
+		}
 	}
+
+	// Return null if fewer than two types of keywords are found
+	const uniqueKeywords = new Set(keywordPositions.map((pos) => pos.keyword));
+	if (uniqueKeywords.size < 2) return null;
+
+	// 2. Find all possible verification codes
+	for (const pattern of CODE_PATTERNS) {
+		const matches = [...text.matchAll(pattern.regex)];
+		for (const match of matches) {
+			candidates.push({
+				code: match[0],
+				index: match.index,
+				priority: pattern.priority,
+				distance: Infinity, // Initialize distance as infinity
+			});
+		}
+	}
+
+	if (candidates.length === 0) {
+		console.log("No possible verification codes found");
+		return null; // No possible verification codes found
+	}
+
+	console.log(
+		`Found ${candidates.length} possible verification code candidates`
+	);
+
+	console.log(`Found ${keywordPositions.length} keyword positions`);
+
+	// Print the first three keywords
+	console.log(
+		"First three unique keywords:",
+		[...new Set(keywordPositions.map((pos) => pos.keyword))].slice(0, 3)
+	);
+
+	// 3. Calculate the distance from each candidate code to the nearest keyword
+	for (let candidate of candidates) {
+		for (let keywordPos of keywordPositions) {
+			// Calculate distance between verification code and keyword
+			// If verification code is after the keyword
+			if (candidate.index > keywordPos.index) {
+				const distance =
+					candidate.index - (keywordPos.index + keywordPos.length);
+				candidate.distance = Math.min(candidate.distance, distance);
+			}
+			// If verification code is before the keyword
+			else {
+				const distance =
+					keywordPos.index - (candidate.index + candidate.code.length);
+				candidate.distance = Math.min(candidate.distance, distance);
+			}
+		}
+	}
+
+	// 4. Sort candidate codes by distance and priority
+	candidates.sort((a, b) => {
+		// Sort by distance first
+		if (a.distance !== b.distance) {
+			return a.distance - b.distance;
+		}
+		// Sort by priority when distances are equal
+		return a.priority - b.priority;
+	});
+
+	// Log the top 3 candidates after sorting (if available)
+	const topCandidates = candidates.slice(0, Math.min(3, candidates.length));
+	console.log(
+		"Sorted verification code candidates (top 3):",
+		topCandidates
+			.map(
+				(c) => `${c.code} (distance: ${c.distance}, priority: ${c.priority})`
+			)
+			.join(", ")
+	);
+
+	// 5. Return the best match
+	console.log("Selected best verification code:", candidates[0].code);
+	return candidates[0].code;
 }
 
 // Check if email content contains verification code
