@@ -1,0 +1,23 @@
+{
+	"name": "thunderbird-vericode",
+	"version": "1.0.0",
+	"description": "Thunderbird插件，用于检测邮件中的验证码并提供复制功能",
+	"main": "background.js",
+	"scripts": {
+		"build": "node build.js",
+		"lint": "eslint ."
+	},
+	"keywords": [
+		"thunderbird",
+		"addon",
+		"extension",
+		"verification-code",
+		"email"
+	],
+	"author": "Vericode Developer",
+	"license": "MIT",
+	"devDependencies": {
+		"archiver": "^5.3.1",
+		"eslint": "^8.40.0"
+	}
+}

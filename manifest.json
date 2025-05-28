@@ -1,0 +1,27 @@
+{
+	"manifest_version": 2,
+	"name": "Thunderbird Vericode",
+	"version": "0.0.1",
+	"author": "shiquda",
+	"description": "Automatically detects verification codes in received emails and displays a notification that you can click to copy the code to clipboard.",
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "me@shiquda.link",
+			"strict_min_version": "78.0"
+		}
+	},
+	"icons": {
+		"64": "icons/icon-64.svg",
+		"48": "icons/icon-48.svg",
+		"32": "icons/icon-32.svg",
+		"16": "icons/icon-16.svg"
+	},
+	"background": {
+		"scripts": ["background.js"]
+	},
+	"options_ui": {
+		"page": "options/options.html",
+		"browser_style": true
+	},
+	"permissions": ["messagesRead", "accountsRead", "notifications", "storage"]
+}
