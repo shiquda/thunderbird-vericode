@@ -60,6 +60,12 @@ If you prefer a simpler approach, you can use `\b[0-9]{4,8}\b` which matches any
 - The plugin only reads email content for verification code detection and does not store or transmit your email content
 - All settings are saved in local browser storage
 
+## To Do
+
+- [ ] Add an option to enable automatically copy the code to clipboard
+- [ ] Refine the regex
+- [ ] Refine the notification interaction
+
 ## License
 
 MIT
