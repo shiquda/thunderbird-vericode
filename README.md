@@ -60,7 +60,7 @@ This makes detection more accurate by only matching numbers that are likely to b
 
 - [ ] Add an option to enable automatically copy the code to clipboard
 - [x] Refine the regex
-- [ ] Refine the notification interaction
+- [x] Refine the notification interaction
 
 ## Development
 
