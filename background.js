@@ -245,28 +245,9 @@ function createNotificationWithCopyButton(message, verificationCode) {
 	// Create notification, prompting user to click to copy verification code
 	browser.notifications.create(notificationId, {
 		type: "basic",
-		title: "Verification Code Found: " + verificationCode,
-		message: `From: ${message.author}\nSubject: ${message.subject}\nClick this notification to copy the code`,
+		title: verificationCode,
+		message: `Verification code: ${verificationCode}.`,
 		iconUrl: browser.runtime.getURL("icons/icon-64.svg"),
-	});
-
-	// Listen for notification click event
-	browser.notifications.onClicked.addListener(function onClicked(id) {
-		if (id === notificationId) {
-			// Copy verification code to clipboard
-			copyToClipboard(verificationCode);
-
-			// Show copied notification
-			browser.notifications.create({
-				type: "basic",
-				title: "Code Copied",
-				message: `Verification code ${verificationCode} has been copied to clipboard`,
-				iconUrl: browser.runtime.getURL("icons/icon-64.svg"),
-			});
-
-			// Remove listener
-			browser.notifications.onClicked.removeListener(onClicked);
-		}
 	});
 
 	// Set notification to automatically close
@@ -275,17 +256,6 @@ function createNotificationWithCopyButton(message, verificationCode) {
 			browser.notifications.clear(notificationId);
 		}, settings.notificationTimeout);
 	}
-}
-
-// Copy text to clipboard
-function copyToClipboard(text) {
-	// Due to WebExtension API limitations, we need to create a temporary input box to copy text
-	const input = document.createElement("input");
-	document.body.appendChild(input);
-	input.value = text;
-	input.select();
-	document.execCommand("copy");
-	document.body.removeChild(input);
 }
 
 // Handle new mail
