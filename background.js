@@ -240,14 +240,24 @@ async function checkMessageForVerificationCode(messageId) {
 	}
 }
 
+async function getName(message, verificationCode) {
+    return browser.messengerUtilities.parseMailboxString(message.author)
+        .then(parsedAddresses => {
+            if (parsedAddresses.length > 0) {
+                return parsedAddresses[0].name || (parsedAddresses[0].email || verificationCode);
+            }
+            return verificationCode;
+        });
+}
+
 // Create notification with copy functionality
-function createNotificationWithCopyButton(message, verificationCode) {
+async function createNotificationWithCopyButton(message, verificationCode) {
 	const notificationId = "vericode-" + Date.now();
 
 	// Create notification, prompting user to click to copy verification code
 	browser.notifications.create(notificationId, {
 		type: "basic",
-		title: verificationCode,
+		title: await getName(message, verificationCode),
 		message: `Verification code: ${verificationCode}.`,
 		iconUrl: browser.runtime.getURL("icons/icon-64.svg"),
 	});
@@ -269,7 +279,7 @@ async function autoCopyToClipboard(message, verificationCode) {
 		// Create notification, prompting user to click to copy verification code
 		browser.notifications.create(notificationId, {
 			type: "basic",
-			title: verificationCode,
+			title: await getName(message, verificationCode),
 			message: "Wrote Verification code to clipboard: " + verificationCode,
 			iconUrl: browser.runtime.getURL("icons/icon-64.svg"),
 		});
@@ -300,7 +310,7 @@ async function handleNewMail(folder, messageList) {
 			if (settings.autoCopy) {
 				await autoCopyToClipboard(message, verificationCode);
 			} else {
-				createNotificationWithCopyButton(message, verificationCode);
+				await createNotificationWithCopyButton(message, verificationCode);
 			}
 
 
