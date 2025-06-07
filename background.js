@@ -48,6 +48,7 @@ const CODE_PATTERNS = [
 let settings = {
 	notificationTimeout: 15000, // Notification display time (milliseconds)
 	enabled: true,
+	autoCopy: false,
 };
 
 // Load settings
@@ -56,6 +57,7 @@ function loadSettings() {
 		.get({
 			notificationTimeout: 15000,
 			enabled: true,
+			autoCopy: false,
 		})
 		.then((result) => {
 			settings = result;
@@ -258,6 +260,31 @@ function createNotificationWithCopyButton(message, verificationCode) {
 	}
 }
 
+async function autoCopyToClipboard(message, verificationCode) {
+	try {
+		await navigator.clipboard.writeText(verificationCode);
+		console.log("Automatically wrote verification code to clipboard");
+		const notificationId = "vericode-" + Date.now();
+
+		// Create notification, prompting user to click to copy verification code
+		browser.notifications.create(notificationId, {
+			type: "basic",
+			title: verificationCode,
+			message: "Wrote Verification code to clipboard: " + verificationCode,
+			iconUrl: browser.runtime.getURL("icons/icon-64.svg"),
+		});
+
+		// Set notification to automatically close
+		if (settings.notificationTimeout > 0) {
+			setTimeout(() => {
+				browser.notifications.clear(notificationId);
+			}, settings.notificationTimeout);
+		}
+	} catch (error) {
+		console.log("Error saving clipboard: " + error.message);
+	}
+}
+
 // Handle new mail
 async function handleNewMail(folder, messageList) {
 	if (!settings.enabled) return;
@@ -270,7 +297,12 @@ async function handleNewMail(folder, messageList) {
 			console.log(
 				`Found verification code in email ${message.id}: ${verificationCode}`
 			);
-			createNotificationWithCopyButton(message, verificationCode);
+			if (settings.autoCopy) {
+				await autoCopyToClipboard(message, verificationCode);
+			} else {
+				createNotificationWithCopyButton(message, verificationCode);
+			}
+
 
 			// Only process the first verification code found
 			break;
@@ -285,6 +317,7 @@ async function init() {
 
 	// Listen for new mail events
 	browser.messages.onNewMailReceived.addListener(handleNewMail);
+	browser.storage.onChanged.addListener((_, __) => { loadSettings(); });
 
 	console.log("Thunderbird Vericode plugin initialized");
 }
