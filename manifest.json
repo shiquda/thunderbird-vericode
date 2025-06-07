@@ -23,5 +23,5 @@
 		"page": "options/options.html",
 		"browser_style": true
 	},
-	"permissions": ["messagesRead", "accountsRead", "notifications", "storage"]
+	"permissions": ["messagesRead", "accountsRead", "notifications", "storage", "clipboardWrite"]
 }

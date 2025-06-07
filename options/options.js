@@ -5,12 +5,14 @@
 // Default settings
 const DEFAULT_SETTINGS = {
 	enabled: true,
+	autoCopy: false,
 	notificationTimeout: 15000,
 };
 
 // Form elements
 const form = document.getElementById("options-form");
 const enabledCheckbox = document.getElementById("enabled");
+const autoCopyCheckbox = document.getElementById("autoCopy");
 const notificationTimeoutInput = document.getElementById("notificationTimeout");
 const statusMessage = document.getElementById("status-message");
 const restoreDefaultsButton = document.getElementById("restore-defaults");
@@ -21,6 +23,7 @@ function loadOptions() {
 		.get(DEFAULT_SETTINGS)
 		.then((result) => {
 			enabledCheckbox.checked = result.enabled;
+			autoCopyCheckbox.checked = result.autoCopy;
 			notificationTimeoutInput.value = result.notificationTimeout;
 		})
 		.catch((error) => {
@@ -46,10 +49,12 @@ function saveOptions(e) {
 	browser.storage.local
 		.set({
 			enabled: enabledCheckbox.checked,
+			autoCopy: autoCopyCheckbox.checked,
 			notificationTimeout: timeout,
 		})
 		.then(() => {
 			showStatus("Settings saved", "success");
+			console.log("Saved settings")
 		})
 		.catch((error) => {
 			showStatus("Error saving settings: " + error.message, "error");
@@ -60,6 +65,7 @@ function saveOptions(e) {
 function restoreDefaults() {
 	// Update form with default values
 	enabledCheckbox.checked = DEFAULT_SETTINGS.enabled;
+	autoCopyCheckbox.checked = DEFAULT_SETTINGS.autoCopy;
 	notificationTimeoutInput.value = DEFAULT_SETTINGS.notificationTimeout;
 
 	// Save default settings to storage
