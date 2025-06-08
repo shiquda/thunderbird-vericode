@@ -262,6 +262,11 @@ async function createNotificationWithCopyButton(message, verificationCode) {
 		iconUrl: browser.runtime.getURL("icons/icon-64.svg"),
 	});
 
+	browser.notifications.onClicked.addListener((notificationId) => {
+		navigator.clipboard.writeText(verificationCode);
+		browser.notifications.clear(notificationId);
+	});
+
 	// Set notification to automatically close
 	if (settings.notificationTimeout > 0) {
 		setTimeout(() => {
