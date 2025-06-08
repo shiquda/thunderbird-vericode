@@ -1,6 +1,6 @@
 {
 	"name": "thunderbird-vericode",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"description": "Thunderbird plugin for detecting verification codes in emails and providing copy functionality",
 	"main": "background.js",
 	"type": "module",
