@@ -31,6 +31,23 @@
       <div class="description">Time before notification automatically closes (0 means no auto-close)</div>
     </div>
     
+    <h2>Verification Code Detection Settings</h2>
+    
+    <div class="form-group regex-list-container">
+      <label>Regex patterns:</label>
+      <div id="regexList" class="regex-list">
+        <!-- Regex patterns will be added here dynamically -->
+      </div>
+      <button type="button" id="addRegex" class="add-button">Add New Regex Pattern</button>
+      <div class="description">Regular expressions used to detect verification codes. Higher priority patterns are matched first.</div>
+    </div>
+    
+    <div class="form-group">
+      <label for="keywords">Verification keywords:</label>
+      <textarea id="keywords" name="keywords" rows="6" placeholder="Enter keywords separated by commas (e.g., verify, code, auth)"></textarea>
+      <div class="description">Keywords used to detect verification code context (separated by commas). At least 2 different keywords is needed in the same message to trigger the detection, e.g. verification & code.</div>
+    </div>
+    
     <div class="button-group">
       <button type="submit">Save Settings</button>
       <button type="button" id="restore-defaults">Restore Defaults</button>
@@ -38,6 +55,30 @@
   </form>
   
   <div id="status-message" class="status"></div>
+  
+  <h2>Test Area</h2>
+  <div class="form-group test-area">
+    <label for="test-input">Paste the text to test:</label>
+    <textarea id="test-input" rows="8" placeholder="Paste the text containing the verification code to test your regex patterns and keywords"></textarea>
+    <button type="button" id="test-button" class="test-button">Test</button>
+    <div class="test-results-container">
+      <h3>Test results:</h3>
+      <div id="test-results" class="test-results">
+        <div id="no-result" class="no-result">No test yet</div>
+        <div id="found-code" class="found-code" style="display:none;">
+          <div class="result-label">Found verification code:</div>
+          <div id="code-value" class="code-value"></div>
+          <div class="result-label">Matched regex:</div>
+          <div id="matched-regex" class="matched-regex"></div>
+          <div class="result-label">Matched keywords:</div>
+          <div id="matched-keywords" class="matched-keywords"></div>
+        </div>
+        <div id="no-code-found" class="no-code-found" style="display:none;">
+          No verification code found. Please check your regex patterns and keywords settings.
+        </div>
+      </div>
+    </div>
+  </div>
   
   <script src="options.js"></script>
 </body>

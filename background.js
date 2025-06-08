@@ -3,8 +3,8 @@
  * Listens for new emails, detects verification codes, and adds copy functionality to system notifications
  */
 
-// Verification keyword list - used to identify verification code context
-const VERIFICATION_KEYWORDS = [
+// Default verification keyword list - used to identify verification code context
+const DEFAULT_VERIFICATION_KEYWORDS = [
 	// English keywords
 	"code",
 	"verif",
@@ -34,14 +34,13 @@ const VERIFICATION_KEYWORDS = [
 	"两步验证",
 ];
 
-// Verification code patterns - used to identify possible verification code formats
-const CODE_PATTERNS = [
-	{ regex: /\b[0-9]{6}\b/g, priority: 1 }, // 6-digit number (most common)
-	{ regex: /\b[0-9]{4}\b/g, priority: 2 }, // 4-digit number
-	{ regex: /\b[0-9]{8}\b/g, priority: 3 }, // 8-digit number
-	// { regex: /\b(?=[a-zA-Z]*[0-9])[a-zA-Z0-9]{4,8}\b/g, priority: 4 }, // 4-8 character alphanumeric combination with at least 1 digit
-	{ regex: /\b[0-9]{5}\b/g, priority: 5 }, // 5-digit number
-	{ regex: /\b[0-9]{7}\b/g, priority: 6 }, // 7-digit number
+// Default verification code patterns - used to identify possible verification code formats
+const DEFAULT_CODE_PATTERNS = [
+	{ pattern: "\\b[0-9]{6}\\b", priority: 1 }, // 6-digit number (most common)
+	{ pattern: "\\b[0-9]{4}\\b", priority: 2 }, // 4-digit number
+	{ pattern: "\\b[0-9]{8}\\b", priority: 3 }, // 8-digit number
+	{ pattern: "\\b[0-9]{5}\\b", priority: 5 }, // 5-digit number
+	{ pattern: "\\b[0-9]{7}\\b", priority: 6 }, // 7-digit number
 ];
 
 // Store settings
@@ -49,7 +48,13 @@ let settings = {
 	notificationTimeout: 15000, // Notification display time (milliseconds)
 	enabled: true,
 	autoCopy: false,
+	regexItems: [...DEFAULT_CODE_PATTERNS],
+	keywords: DEFAULT_VERIFICATION_KEYWORDS.join(", "),
 };
+
+// Active verification keywords and patterns
+let activeVerificationKeywords = [...DEFAULT_VERIFICATION_KEYWORDS];
+let activeCodePatterns = [];
 
 // Load settings
 function loadSettings() {
@@ -58,12 +63,77 @@ function loadSettings() {
 			notificationTimeout: 15000,
 			enabled: true,
 			autoCopy: false,
+			regexItems: [...DEFAULT_CODE_PATTERNS],
+			keywords: DEFAULT_VERIFICATION_KEYWORDS.join(", "),
 		})
 		.then((result) => {
 			settings = result;
 			console.log("Settings loaded:", settings);
+
+			// Update active verification keywords
+			updateActiveVerificationKeywords();
+
+			// Update active code patterns
+			updateActiveCodePatterns();
+
 			return settings;
 		});
+}
+
+// Update active verification keywords based on settings
+function updateActiveVerificationKeywords() {
+	activeVerificationKeywords = [];
+
+	// Add keywords if provided
+	if (settings.keywords && settings.keywords.trim() !== "") {
+		const keywords = settings.keywords
+			.split(",")
+			.map((keyword) => keyword.trim())
+			.filter((keyword) => keyword !== "");
+
+		activeVerificationKeywords = [...keywords];
+	} else {
+		// Fallback to defaults if no keywords provided
+		activeVerificationKeywords = [...DEFAULT_VERIFICATION_KEYWORDS];
+	}
+
+	console.log(
+		`Active verification keywords: ${activeVerificationKeywords.length} keywords`
+	);
+}
+
+// Update active code patterns based on settings
+function updateActiveCodePatterns() {
+	activeCodePatterns = [];
+
+	// Add patterns if provided
+	if (settings.regexItems && settings.regexItems.length > 0) {
+		const patterns = settings.regexItems
+			.map((item) => {
+				try {
+					return {
+						regex: new RegExp(item.pattern, "g"),
+						priority: item.priority,
+					};
+				} catch (error) {
+					console.error(`Invalid regex pattern: ${item.pattern}`, error);
+					return null;
+				}
+			})
+			.filter((pattern) => pattern !== null);
+
+		activeCodePatterns = [...patterns];
+	} else {
+		// Fallback to defaults if no patterns provided
+		activeCodePatterns = DEFAULT_CODE_PATTERNS.map((item) => {
+			return {
+				regex: new RegExp(item.pattern, "g"),
+				priority: item.priority,
+			};
+		});
+	}
+
+	console.log(`Active code patterns: ${activeCodePatterns.length} patterns`);
 }
 
 // Enhanced verification code extraction function
@@ -74,7 +144,7 @@ function extractVerificationCode(text) {
 
 	// 1. Find positions of all keywords
 	let keywordPositions = [];
-	for (const keyword of VERIFICATION_KEYWORDS) {
+	for (const keyword of activeVerificationKeywords) {
 		let keywordLower = keyword.toLowerCase();
 		let pos = textLower.indexOf(keywordLower);
 		while (pos !== -1) {
@@ -92,7 +162,7 @@ function extractVerificationCode(text) {
 	if (uniqueKeywords.size < 2) return null;
 
 	// 2. Find all possible verification codes
-	for (const pattern of CODE_PATTERNS) {
+	for (const pattern of activeCodePatterns) {
 		const matches = [...text.matchAll(pattern.regex)];
 		for (const match of matches) {
 			candidates.push({
@@ -241,13 +311,18 @@ async function checkMessageForVerificationCode(messageId) {
 }
 
 async function getName(message, verificationCode) {
-    return browser.messengerUtilities.parseMailboxString(message.author)
-        .then(parsedAddresses => {
-            if (parsedAddresses.length > 0) {
-                return parsedAddresses[0].name || (parsedAddresses[0].email || verificationCode);
-            }
-            return verificationCode;
-        });
+	return browser.messengerUtilities
+		.parseMailboxString(message.author)
+		.then((parsedAddresses) => {
+			if (parsedAddresses.length > 0) {
+				return (
+					parsedAddresses[0].name ||
+					parsedAddresses[0].email ||
+					verificationCode
+				);
+			}
+			return verificationCode;
+		});
 }
 
 // Create notification with copy functionality
@@ -318,7 +393,6 @@ async function handleNewMail(folder, messageList) {
 				await createNotificationWithCopyButton(message, verificationCode);
 			}
 
-
 			// Only process the first verification code found
 			break;
 		}
@@ -332,7 +406,9 @@ async function init() {
 
 	// Listen for new mail events
 	browser.messages.onNewMailReceived.addListener(handleNewMail);
-	browser.storage.onChanged.addListener((_, __) => { loadSettings(); });
+	browser.storage.onChanged.addListener((_, __) => {
+		loadSettings();
+	});
 
 	console.log("Thunderbird Vericode plugin initialized");
 }
