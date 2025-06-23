@@ -61,8 +61,9 @@ This makes detection more accurate by only matching numbers that are likely to b
 - [x] Add an option to enable automatically copy the code to clipboard
 - [x] Refine the regex
 - [x] Refine the notification interaction
-- [ ] Customize regex and keywords
-- [ ] Add a CI to build the plugin to the release page when tag is created
+- [x] Customize regex and keywords
+- [x] Add a CI to build the plugin to the release page when tag is created
+- [ ] Verification/Activation URL support
 
 ## Development
 
