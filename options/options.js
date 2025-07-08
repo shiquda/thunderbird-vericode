@@ -47,6 +47,8 @@ const DEFAULT_SETTINGS = {
 	notificationTimeout: 15000,
 	regexItems: [...DEFAULT_REGEX_PATTERNS],
 	keywords: DEFAULT_KEYWORDS.join(", "),
+	excludedEmails: "",
+	excludeRegex: "",
 };
 
 // Form elements
@@ -57,6 +59,8 @@ const notificationTimeoutInput = document.getElementById("notificationTimeout");
 const regexList = document.getElementById("regexList");
 const addRegexButton = document.getElementById("addRegex");
 const keywordsInput = document.getElementById("keywords");
+const excludedEmailsInput = document.getElementById("excludedEmails");
+const excludeRegexInput = document.getElementById("excludeRegex");
 const statusMessage = document.getElementById("status-message");
 const restoreDefaultsButton = document.getElementById("restore-defaults");
 
@@ -80,6 +84,8 @@ function loadOptions() {
 			autoCopyCheckbox.checked = result.autoCopy;
 			notificationTimeoutInput.value = result.notificationTimeout;
 			keywordsInput.value = result.keywords;
+			excludedEmailsInput.value = result.excludedEmails || "";
+			excludeRegexInput.value = result.excludeRegex || "";
 
 			// Populate regex list
 			populateRegexList(result.regexItems || DEFAULT_REGEX_PATTERNS);
@@ -187,6 +193,8 @@ function saveOptions(e) {
 			notificationTimeout: timeout,
 			regexItems: regexItems,
 			keywords: keywordsInput.value,
+			excludedEmails: excludedEmailsInput.value,
+			excludeRegex: excludeRegexInput.value,
 		})
 		.then(() => {
 			showStatus("Settings saved", "success");
@@ -204,6 +212,8 @@ function restoreDefaults() {
 	autoCopyCheckbox.checked = DEFAULT_SETTINGS.autoCopy;
 	notificationTimeoutInput.value = DEFAULT_SETTINGS.notificationTimeout;
 	keywordsInput.value = DEFAULT_SETTINGS.keywords;
+	excludedEmailsInput.value = DEFAULT_SETTINGS.excludedEmails;
+	excludeRegexInput.value = DEFAULT_SETTINGS.excludeRegex;
 
 	// Reset regex list
 	populateRegexList(DEFAULT_REGEX_PATTERNS);
@@ -248,6 +258,24 @@ function testVerificationCode() {
 		.map((k) => k.trim())
 		.filter((k) => k);
 
+	// Get current exclusion rules from form
+	const excludedEmailsText = excludedEmailsInput.value;
+	const excludedEmailsList = excludedEmailsText
+		.split(",")
+		.map((email) => email.trim().toLowerCase())
+		.filter((email) => email !== "");
+
+	const excludeRegexText = excludeRegexInput.value;
+	const excludeRegexList = excludeRegexText
+		.split("\n")
+		.map((pattern) => pattern.trim())
+		.filter((pattern) => pattern !== "");
+
+	// Create test message object
+	const testMessage = {
+		author: "test@example.com", // Default test sender
+	};
+
 	// Check if we have at least one regex pattern
 	if (regexItems.length === 0) {
 		showStatus("请先添加至少一个正则表达式模式", "error");
@@ -260,10 +288,39 @@ function testVerificationCode() {
 		return;
 	}
 
-	// Sort regex patterns by priority
-	const sortedRegexItems = [...regexItems].sort(
-		(a, b) => a.priority - b.priority
-	);
+	// Check exclusion rules first
+
+	// 1. Check if test contains an email address to check against excluded emails
+	const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
+	const emailMatches = text.match(emailRegex);
+
+	if (emailMatches && emailMatches.length > 0) {
+		const foundEmail = emailMatches[0].toLowerCase();
+		testMessage.author = foundEmail;
+
+		// Check if this email is in the excluded list
+		if (excludedEmailsList.includes(foundEmail)) {
+			showTestResult("excluded", {
+				reason: `Email address ${foundEmail} is in the excluded list`,
+			});
+			return;
+		}
+	}
+
+	// 2. Check if text matches any exclude regex pattern
+	for (const pattern of excludeRegexList) {
+		try {
+			const regex = new RegExp(pattern, "i");
+			if (regex.test(text)) {
+				showTestResult("excluded", {
+					reason: `Text matches exclude pattern: ${pattern}`,
+				});
+				return;
+			}
+		} catch (error) {
+			console.error(`Invalid exclude regex pattern: ${pattern}`, error);
+		}
+	}
 
 	// Check for keywords
 	const foundKeywords = [];
@@ -283,7 +340,7 @@ function testVerificationCode() {
 	let foundVerificationCode = null;
 	let matchedPattern = null;
 
-	for (const item of sortedRegexItems) {
+	for (const item of regexItems) {
 		try {
 			const regex = new RegExp(item.pattern, "gim");
 			const matches = text.match(regex);
@@ -340,6 +397,11 @@ function showTestResult(result, data = {}) {
 				noCodeFound.textContent =
 					"No enough keywords (at least 2). Please check your keywords settings.";
 			}
+			noCodeFound.style.display = "block";
+			break;
+
+		case "excluded":
+			noCodeFound.textContent = `Verification code not processed. Reason: ${data.reason}`;
 			noCodeFound.style.display = "block";
 			break;
 

@@ -1,7 +1,7 @@
 {
 	"manifest_version": 2,
 	"name": "Thunderbird Vericode",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"author": "shiquda",
 	"description": "Automatically detects verification codes in received emails and displays a notification that you can click to copy the code to clipboard.",
 	"browser_specific_settings": {

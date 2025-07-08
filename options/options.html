@@ -48,6 +48,20 @@
       <div class="description">Keywords used to detect verification code context (separated by commas). At least 2 different keywords is needed in the same message to trigger the detection, e.g. verification & code.</div>
     </div>
     
+    <h2>Exclusion Rules</h2>
+    
+    <div class="form-group">
+      <label for="excludedEmails">Excluded email addresses:</label>
+      <textarea id="excludedEmails" name="excludedEmails" rows="4" placeholder="Enter email addresses separated by commas (e.g., noreply@bank.com, info@company.com)"></textarea>
+      <div class="description">Messages from these email addresses will be ignored (separated by commas)</div>
+    </div>
+    
+    <div class="form-group">
+      <label for="excludeRegex">Exclusion regex patterns:</label>
+      <textarea id="excludeRegex" name="excludeRegex" rows="4" placeholder="Enter regex patterns separated by new lines (e.g., .*bank will never send.*confidential information.*)"></textarea>
+      <div class="description">Messages matching these regex patterns will be ignored (one pattern per line). These patterns will be applied to the combined subject and content text.</div>
+    </div>
+    
     <div class="button-group">
       <button type="submit">Save Settings</button>
       <button type="button" id="restore-defaults">Restore Defaults</button>

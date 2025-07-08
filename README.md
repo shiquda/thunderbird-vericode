@@ -43,8 +43,11 @@ Monitors incoming emails and uses regular expressions to detect verification cod
 5. In the settings page, you can:
    - Enable or disable verification code detection
    - Set the notification display time
+   - Customize regex patterns for verification code detection
+   - Configure keywords used to identify verification code context
+   - Set up exclusion rules to filter out unwanted notifications
 
-### Verfication Code Detection
+### Verification Code Detection
 
 The plugin uses a context-aware approach to detect verification codes. It looks for 4-8 digit numbers that appear near context words like "code", "verification", "valid", "auth", "token", "验证码", etc.
 
@@ -61,8 +64,9 @@ This makes detection more accurate by only matching numbers that are likely to b
 - [x] Add an option to enable automatically copy the code to clipboard
 - [x] Refine the regex
 - [x] Refine the notification interaction
-- [ ] Customize regex and keywords
-- [ ] Add a CI to build the plugin to the release page when tag is created
+- [x] Customize regex and keywords
+- [x] Add exclusion rules
+- [x] Add a CI to build the plugin to the release page when tag is created
 
 ## Development
 

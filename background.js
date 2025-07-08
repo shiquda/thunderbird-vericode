@@ -50,11 +50,15 @@ let settings = {
 	autoCopy: false,
 	regexItems: [...DEFAULT_CODE_PATTERNS],
 	keywords: DEFAULT_VERIFICATION_KEYWORDS.join(", "),
+	excludedEmails: "",
+	excludeRegex: "",
 };
 
 // Active verification keywords and patterns
 let activeVerificationKeywords = [...DEFAULT_VERIFICATION_KEYWORDS];
 let activeCodePatterns = [];
+let activeExcludedEmails = [];
+let activeExcludeRegexPatterns = [];
 
 // Load settings
 function loadSettings() {
@@ -65,6 +69,8 @@ function loadSettings() {
 			autoCopy: false,
 			regexItems: [...DEFAULT_CODE_PATTERNS],
 			keywords: DEFAULT_VERIFICATION_KEYWORDS.join(", "),
+			excludedEmails: "",
+			excludeRegex: "",
 		})
 		.then((result) => {
 			settings = result;
@@ -75,6 +81,9 @@ function loadSettings() {
 
 			// Update active code patterns
 			updateActiveCodePatterns();
+
+			// Update active exclusion rules
+			updateActiveExclusionRules();
 
 			return settings;
 		});
@@ -134,6 +143,81 @@ function updateActiveCodePatterns() {
 	}
 
 	console.log(`Active code patterns: ${activeCodePatterns.length} patterns`);
+}
+
+// Update active exclusion rules based on settings
+function updateActiveExclusionRules() {
+	// Update excluded emails
+	activeExcludedEmails = [];
+	if (settings.excludedEmails && settings.excludedEmails.trim() !== "") {
+		activeExcludedEmails = settings.excludedEmails
+			.split(",")
+			.map((email) => email.trim().toLowerCase())
+			.filter((email) => email !== "");
+	}
+	console.log(`Active excluded emails: ${activeExcludedEmails.length} emails`);
+
+	// Update exclude regex patterns
+	activeExcludeRegexPatterns = [];
+	if (settings.excludeRegex && settings.excludeRegex.trim() !== "") {
+		const patterns = settings.excludeRegex
+			.split("\n")
+			.map((pattern) => pattern.trim())
+			.filter((pattern) => pattern !== "");
+
+		activeExcludeRegexPatterns = patterns
+			.map((pattern) => {
+				try {
+					return new RegExp(pattern, "i");
+				} catch (error) {
+					console.error(`Invalid exclude regex pattern: ${pattern}`, error);
+					return null;
+				}
+			})
+			.filter((pattern) => pattern !== null);
+	}
+	console.log(
+		`Active exclude regex patterns: ${activeExcludeRegexPatterns.length} patterns`
+	);
+}
+
+// Check if message should be excluded based on exclusion rules
+async function shouldExcludeMessage(message, combinedText) {
+	// Check if sender email is in the excluded emails list
+	if (activeExcludedEmails.length > 0 && message.author) {
+		try {
+			console.log("message.author", message.author);
+			const parsedAddresses =
+				await browser.messengerUtilities.parseMailboxString(message.author);
+
+			if (parsedAddresses && parsedAddresses.length > 0) {
+				const senderEmail = parsedAddresses[0].email.toLowerCase();
+				console.log("senderEmail", senderEmail);
+				if (activeExcludedEmails.includes(senderEmail)) {
+					console.log(
+						`Message excluded: sender email ${senderEmail} is in the excluded list`
+					);
+					return true;
+				}
+			}
+		} catch (error) {
+			console.error("Error parsing sender email:", error);
+		}
+	}
+
+	// Check if message content matches any exclude regex pattern
+	if (activeExcludeRegexPatterns.length > 0 && combinedText) {
+		for (const pattern of activeExcludeRegexPatterns) {
+			if (pattern.test(combinedText)) {
+				console.log(
+					`Message excluded: content matches exclude pattern ${pattern}`
+				);
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 // Enhanced verification code extraction function
@@ -301,6 +385,14 @@ async function checkMessageForVerificationCode(messageId) {
 
 		// Look for verification code in subject and content
 		const combinedText = subject + " " + textContent;
+
+		// Check if message should be excluded
+		const shouldExclude = await shouldExcludeMessage(message, combinedText);
+		if (shouldExclude) {
+			console.log("Message excluded based on exclusion rules");
+			return null;
+		}
+
 		const verificationCode = extractVerificationCode(combinedText);
 
 		return verificationCode;
