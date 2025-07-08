@@ -67,6 +67,7 @@ This makes detection more accurate by only matching numbers that are likely to b
 - [x] Customize regex and keywords
 - [x] Add exclusion rules
 - [x] Add a CI to build the plugin to the release page when tag is created
+- [ ] Verification/Activation URL support
 
 ## Development
 
