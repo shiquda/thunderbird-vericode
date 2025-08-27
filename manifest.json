@@ -17,7 +17,7 @@
 		"16": "icons/icon-16.svg"
 	},
 	"background": {
-		"scripts": ["background.js"]
+		"scripts": ["lib/verification-core.js", "background.js"]
 	},
 	"options_ui": {
 		"page": "options/options.html",

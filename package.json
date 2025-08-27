@@ -1,12 +1,11 @@
 {
 	"name": "thunderbird-vericode",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"description": "Thunderbird plugin for detecting verification codes in emails and providing copy functionality",
 	"main": "background.js",
 	"type": "module",
 	"scripts": {
-		"build": "node build.js",
-		"test": "node test/test.js"
+		"build": "node build.js"
 	},
 	"keywords": [
 		"thunderbird",
@@ -18,8 +17,7 @@
 	"author": "shiquda",
 	"license": "MIT",
 	"devDependencies": {
-		"archiver": "^5.3.1",
-		"mailparser": "^3.6.5"
+		"archiver": "^5.3.1"
 	},
 	"packageManager": "pnpm@8.15.5+sha1.a58c038faac410c947dbdb93eb30994037d0fce2"
 }

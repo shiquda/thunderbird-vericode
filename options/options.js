@@ -2,43 +2,34 @@
  * Thunderbird Vericode - Settings page logic
  */
 
-// Default regex patterns
-const DEFAULT_REGEX_PATTERNS = [
-	{ pattern: "\\b[0-9]{6}\\b", priority: 1 }, // 6-digit number (most common)
-	{ pattern: "\\b[0-9]{4}\\b", priority: 2 }, // 4-digit number
-	{ pattern: "\\b[0-9]{8}\\b", priority: 3 }, // 8-digit number
-	{ pattern: "\\b[0-9]{5}\\b", priority: 4 }, // 5-digit number
-	{ pattern: "\\b[0-9]{7}\\b", priority: 5 }, // 7-digit number
-];
+// Get default patterns and keywords from the shared library
+function getDefaults() {
+	// Wait for the library to load
+	if (typeof VerificationCodeExtractor === 'undefined') {
+		// Fallback defaults
+		return {
+			regexPatterns: [
+				{ pattern: "\\b[0-9]{6}\\b", priority: 1 },
+				{ pattern: "\\b[0-9]{4}\\b", priority: 2 },
+				{ pattern: "\\b[0-9]{8}\\b", priority: 3 },
+				{ pattern: "\\b[0-9]{5}\\b", priority: 4 },
+				{ pattern: "\\b[0-9]{7}\\b", priority: 5 }
+			],
+			keywords: "code,verif,login,validat,authenticate,authorization,authorize,one-time,onetime,one time,two-factor,two factor,码,验证,校验,认证,动态,登录,口令,授权,动态密,临时密,一次性密,双重验证,两步验证"
+		};
+	}
+	
+	// Use the library's defaults if available
+	return {
+		regexPatterns: DEFAULT_CODE_PATTERNS || [],
+		keywords: DEFAULT_VERIFICATION_KEYWORDS ? DEFAULT_VERIFICATION_KEYWORDS.join(", ") : ""
+	};
+}
 
-// Default keywords
-const DEFAULT_KEYWORDS = [
-	"code",
-	"verif",
-	"login",
-	"validat",
-	"authenticate",
-	"authorization",
-	"authorize",
-	"one-time",
-	"onetime",
-	"one time",
-	"two-factor",
-	"two factor",
-	"码",
-	"验证",
-	"校验",
-	"认证",
-	"动态",
-	"登录",
-	"口令",
-	"授权",
-	"动态密",
-	"临时密",
-	"一次性密",
-	"双重验证",
-	"两步验证",
-];
+// Initialize defaults
+const defaults = getDefaults();
+const DEFAULT_REGEX_PATTERNS = defaults.regexPatterns;
+const DEFAULT_KEYWORDS_STRING = defaults.keywords;
 
 // Default settings
 const DEFAULT_SETTINGS = {
@@ -46,7 +37,7 @@ const DEFAULT_SETTINGS = {
 	autoCopy: false,
 	notificationTimeout: 15000,
 	regexItems: [...DEFAULT_REGEX_PATTERNS],
-	keywords: DEFAULT_KEYWORDS.join(", "),
+	keywords: DEFAULT_KEYWORDS_STRING,
 	excludedEmails: "",
 	excludeRegex: "",
 };
@@ -242,7 +233,7 @@ function showStatus(message, type) {
 }
 
 // Test verification code detection
-function testVerificationCode() {
+async function testVerificationCode() {
 	const text = testInput.value.trim();
 
 	if (!text) {
@@ -250,31 +241,11 @@ function testVerificationCode() {
 		return;
 	}
 
-	// Get current regex patterns and keywords from form
+	// Get current settings from form
 	const regexItems = collectRegexItems();
 	const keywordsText = keywordsInput.value;
-	const keywordsList = keywordsText
-		.split(",")
-		.map((k) => k.trim())
-		.filter((k) => k);
-
-	// Get current exclusion rules from form
 	const excludedEmailsText = excludedEmailsInput.value;
-	const excludedEmailsList = excludedEmailsText
-		.split(",")
-		.map((email) => email.trim().toLowerCase())
-		.filter((email) => email !== "");
-
 	const excludeRegexText = excludeRegexInput.value;
-	const excludeRegexList = excludeRegexText
-		.split("\n")
-		.map((pattern) => pattern.trim())
-		.filter((pattern) => pattern !== "");
-
-	// Create test message object
-	const testMessage = {
-		author: "test@example.com", // Default test sender
-	};
 
 	// Check if we have at least one regex pattern
 	if (regexItems.length === 0) {
@@ -283,86 +254,73 @@ function testVerificationCode() {
 	}
 
 	// Check if we have keywords
-	if (keywordsList.length === 0) {
+	if (!keywordsText || keywordsText.trim() === "") {
 		showStatus("请先添加关键词", "error");
 		return;
 	}
 
-	// Check exclusion rules first
+	// Create test configuration
+	const testConfig = {
+		regexItems: regexItems,
+		keywords: keywordsText,
+		excludedEmails: excludedEmailsText,
+		excludeRegex: excludeRegexText
+	};
 
-	// 1. Check if test contains an email address to check against excluded emails
+	// Create test message object if we can extract an email from the text
+	let testMessage = null;
 	const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
 	const emailMatches = text.match(emailRegex);
-
 	if (emailMatches && emailMatches.length > 0) {
-		const foundEmail = emailMatches[0].toLowerCase();
-		testMessage.author = foundEmail;
-
-		// Check if this email is in the excluded list
-		if (excludedEmailsList.includes(foundEmail)) {
-			showTestResult("excluded", {
-				reason: `Email address ${foundEmail} is in the excluded list`,
-			});
-			return;
-		}
+		testMessage = {
+			author: emailMatches[0]
+		};
 	}
 
-	// 2. Check if text matches any exclude regex pattern
-	for (const pattern of excludeRegexList) {
-		try {
-			const regex = new RegExp(pattern, "i");
-			if (regex.test(text)) {
-				showTestResult("excluded", {
-					reason: `Text matches exclude pattern: ${pattern}`,
-				});
-				return;
-			}
-		} catch (error) {
-			console.error(`Invalid exclude regex pattern: ${pattern}`, error);
-		}
-	}
-
-	// Check for keywords
-	const foundKeywords = [];
-	for (const keyword of keywordsList) {
-		if (keyword && text.toLowerCase().includes(keyword.toLowerCase())) {
-			foundKeywords.push(keyword);
-		}
-	}
-
-	// Need at least 2 keywords to trigger detection
-	if (foundKeywords.length < 2) {
-		showTestResult("no-code", { keywords: foundKeywords });
+	// Wait for VerificationCodeExtractor to be loaded
+	if (typeof VerificationCodeExtractor === 'undefined') {
+		showStatus("验证核心库正在加载中，请稍后再试", "error");
 		return;
 	}
 
-	// Try to match verification code using regex patterns
-	let foundVerificationCode = null;
-	let matchedPattern = null;
-
-	for (const item of regexItems) {
-		try {
-			const regex = new RegExp(item.pattern, "gim");
-			const matches = text.match(regex);
-
-			if (matches && matches.length > 0) {
-				foundVerificationCode = matches[0];
-				matchedPattern = item.pattern;
-				break;
+	try {
+		// Create extractor instance with current configuration
+		const extractor = new VerificationCodeExtractor(testConfig);
+		
+		// Test extraction
+		const result = await extractor.testExtraction(text, testMessage);
+		
+		if (result.success) {
+			showTestResult("found", {
+				code: result.code,
+				pattern: result.matchedPattern,
+				keywords: result.foundKeywords
+			});
+		} else {
+			switch (result.reason) {
+				case "empty":
+					showTestResult("empty");
+					break;
+				case "excluded":
+					showTestResult("excluded", { reason: result.message });
+					break;
+				case "insufficient_keywords":
+				case "no_code_found":
+					showTestResult("no-code", { 
+						keywords: result.foundKeywords || [],
+						message: result.message 
+					});
+					break;
+				default:
+					showTestResult("no-code", { 
+						keywords: result.foundKeywords || [],
+						message: result.message || "未知错误"
+					});
 			}
-		} catch (error) {
-			console.error(`Invalid regex pattern: ${item.pattern}`, error);
 		}
-	}
-
-	if (foundVerificationCode) {
-		showTestResult("found", {
-			code: foundVerificationCode,
-			pattern: matchedPattern,
-			keywords: foundKeywords,
-		});
-	} else {
-		showTestResult("no-code", { keywords: foundKeywords });
+	} catch (error) {
+		console.error("Test extraction error:", error);
+		showStatus("测试过程中发生错误: " + error.message, "error");
 	}
 }
 
@@ -387,7 +345,9 @@ function showTestResult(result, data = {}) {
 			break;
 
 		case "no-code":
-			if (data.keywords && data.keywords.length > 0) {
+			if (data.message) {
+				noCodeFound.textContent = data.message;
+			} else if (data.keywords && data.keywords.length > 0) {
 				noCodeFound.textContent = `Found ${
 					data.keywords.length
 				} keywords (${data.keywords.join(
