@@ -1,7 +1,7 @@
 {
 	"manifest_version": 2,
 	"name": "Thunderbird Vericode",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"author": "shiquda",
 	"description": "Automatically detects verification codes in received emails and displays a notification that you can click to copy the code to clipboard.",
 	"browser_specific_settings": {
@@ -17,7 +17,10 @@
 		"16": "icons/icon-16.svg"
 	},
 	"background": {
-		"scripts": ["lib/verification-core.js", "background.js"]
+		"scripts": [
+			"lib/verification-core.js",
+			"background.js"
+		]
 	},
 	"options_ui": {
 		"page": "options/options.html",
