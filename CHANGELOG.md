@@ -22,3 +22,11 @@
 - Support excluding messages by sender email address.
 - Support excluding messages by content regex patterns.
 - Update test area to validate exclusion rules.
+
+## Unreleased
+
+- Detect mixed letter-digit verification codes and recognize authentication and one-time password messages (#9).
+- Reduce false matches from street addresses, postal codes, phone numbers, and contextual years; preserve explicitly labeled codes that resemble those formats.
+- Support a single custom verification keyword and keep test-area diagnostics consistent with detection.
+- Include the shared verification library in built XPI files so packaged background and settings scripts can load.
+- Add local detection regression tests, including the anonymized examples from #9.

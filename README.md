@@ -58,13 +58,15 @@ A verification code detection plugin for Thunderbird that automatically detects 
 
 #### Detection Configuration
 - **Regex patterns**: Define regular expressions to match verification codes
-  - Default patterns match 4-8 digit numbers
-  - You can add custom patterns like `[A-Z0-9]{6}` for alphanumeric codes
+  - Default patterns match 4–8 digit numbers and 4–8 character codes containing both letters and digits
+  - Mixed letter-digit codes need nearby verification context; pure-letter codes require a custom pattern
   - Each pattern has a priority (lower numbers = higher priority)
 - **Verification keywords**: Words that help identify verification code context
-  - Default includes: code, verify, login, authenticate, 验证, 登录, etc.
-  - At least 2 different keywords must be found in the same email
+  - Default includes: code, verif, login, authentication, password, 验证, 登录, etc.
+  - At least 2 different keyword matches are required, except a custom list containing only one keyword
 - **Test Area**: Paste sample email text to test your configuration
+
+Saved keyword and regex lists are preserved. If you previously saved numeric-only patterns, add a mixed letter-digit pattern such as `\b(?=[A-Za-z0-9]*[0-9])(?=[A-Za-z0-9]*[A-Za-z])[A-Za-z0-9]{4,8}\b` to enable those codes. Add `authentication` and `password` to an older keyword list for one-time password emails.
 
 #### Exclusion Rules
 - **Excluded email addresses**: Skip detection from specific senders
@@ -91,10 +93,10 @@ A verification code detection plugin for Thunderbird that automatically detects 
 The plugin uses a sophisticated multi-step process:
 
 1. **Keyword Detection**: Scans email subject and content for verification-related keywords
-2. **Context Requirement**: Requires at least 2 different keywords to reduce false positives
+2. **Context Requirement**: Requires two keyword matches, or one when the configured list has a single keyword
 3. **Pattern Matching**: Applies regex patterns to find potential verification codes
-4. **Distance Calculation**: Prefers codes that appear closer to relevant keywords
-5. **Priority Sorting**: Uses pattern priorities to select the best match
+4. **Candidate Filtering**: Rejects common street-address, postal-code, phone-number, date, and copyright-year matches; explicit verification code labels take precedence over shape-only exclusions
+5. **Selection**: Prefers candidates closer to relevant keywords, using pattern priority to break ties
 6. **Exclusion Filtering**: Applies sender and content-based exclusion rules
 
 This approach minimizes false positives while maintaining high accuracy.
@@ -113,6 +115,7 @@ This approach minimizes false positives while maintaining high accuracy.
 1. Clone this repository
 2. Run `pnpm install` to install the dependencies
 3. Run `pnpm run build` to pack the plugin into a `.xpi` file
+4. Run `pnpm test` to check code detection against regression examples
 
 ### Architecture
 
@@ -150,7 +153,7 @@ This ensures the testing area and actual detection use identical algorithms.
 
 ### Common Issues
 
-1. **Codes not detected**: Check that your emails contain at least 2 verification keywords
+1. **Codes not detected**: Use the test area to check keyword matches and patterns. Previously saved keyword and regex lists do not automatically pick up new defaults.
 2. **Wrong codes detected**: Adjust regex patterns and priorities in settings
 3. **Too many false positives**: Add exclusion rules or stricter regex patterns
 4. **Test area shows different results**: This should no longer happen after recent fixes

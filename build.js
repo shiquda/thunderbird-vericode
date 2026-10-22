@@ -55,6 +55,9 @@ const necessaryFiles = [
 	// Background script containing main plugin logic
 	{ path: "background.js", type: "file" },
 
+	// Shared verification code used by the background and options pages
+	{ path: "lib", type: "directory" },
+
 	// Icon files for toolbar and plugin management page
 	{ path: "icons", type: "directory" },
 
