@@ -30,3 +30,7 @@
 - Support a single custom verification keyword and keep test-area diagnostics consistent with detection.
 - Include the shared verification library in built XPI files so packaged background and settings scripts can load.
 - Add local detection regression tests, including the anonymized examples from #9.
+- Add a separate post-copy Email action setting: leave unchanged (default), archive with Thunderbird's archive settings, or move explicitly to the account's Trash folder (#4).
+- Run post-copy mail actions only after clipboard success, including automatic copying; report failures without falling back to deletion.
+- Route each notification click to its own email and code, with protection against repeated clicks while copying.
+- Request `messagesMove` permission for the optional archive and Trash actions.

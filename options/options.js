@@ -35,6 +35,7 @@ const DEFAULT_KEYWORDS_STRING = defaults.keywords;
 const DEFAULT_SETTINGS = {
 	enabled: true,
 	autoCopy: false,
+	postCopyAction: "none",
 	notificationTimeout: 15000,
 	regexItems: [...DEFAULT_REGEX_PATTERNS],
 	keywords: DEFAULT_KEYWORDS_STRING,
@@ -46,6 +47,7 @@ const DEFAULT_SETTINGS = {
 const form = document.getElementById("options-form");
 const enabledCheckbox = document.getElementById("enabled");
 const autoCopyCheckbox = document.getElementById("autoCopy");
+const postCopyActionSelect = document.getElementById("postCopyAction");
 const notificationTimeoutInput = document.getElementById("notificationTimeout");
 const regexList = document.getElementById("regexList");
 const addRegexButton = document.getElementById("addRegex");
@@ -73,6 +75,7 @@ function loadOptions() {
 		.then((result) => {
 			enabledCheckbox.checked = result.enabled;
 			autoCopyCheckbox.checked = result.autoCopy;
+			postCopyActionSelect.value = result.postCopyAction;
 			notificationTimeoutInput.value = result.notificationTimeout;
 			keywordsInput.value = result.keywords;
 			excludedEmailsInput.value = result.excludedEmails || "";
@@ -181,6 +184,7 @@ function saveOptions(e) {
 		.set({
 			enabled: enabledCheckbox.checked,
 			autoCopy: autoCopyCheckbox.checked,
+			postCopyAction: postCopyActionSelect.value,
 			notificationTimeout: timeout,
 			regexItems: regexItems,
 			keywords: keywordsInput.value,
@@ -201,6 +205,7 @@ function restoreDefaults() {
 	// Update form with default values
 	enabledCheckbox.checked = DEFAULT_SETTINGS.enabled;
 	autoCopyCheckbox.checked = DEFAULT_SETTINGS.autoCopy;
+	postCopyActionSelect.value = DEFAULT_SETTINGS.postCopyAction;
 	notificationTimeoutInput.value = DEFAULT_SETTINGS.notificationTimeout;
 	keywordsInput.value = DEFAULT_SETTINGS.keywords;
 	excludedEmailsInput.value = DEFAULT_SETTINGS.excludedEmails;

@@ -28,6 +28,7 @@
 	},
 	"permissions": [
 		"messagesRead",
+		"messagesMove",
 		"accountsRead",
 		"notifications",
 		"storage",

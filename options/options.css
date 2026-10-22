@@ -50,6 +50,7 @@ label {
 
 input[type="text"],
 input[type="number"],
+select,
 textarea {
 	width: 100%;
 	padding: 8px;

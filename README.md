@@ -56,6 +56,18 @@ A verification code detection plugin for Thunderbird that automatically detects 
 - **Enable automatic copy**: Automatically copy codes to clipboard (no click required)
 - **Notification display time**: How long notifications stay visible (0 = no auto-close)
 
+#### After Copying a Code
+
+Choose an **Email action** separately from automatic copying:
+
+- **Leave email unchanged** (default): Copy the code without moving the email.
+- **Archive email**: Archive the email using Thunderbird's configured archive settings.
+- **Move email to Trash**: Move the email to the Trash folder of its own account. This does not use the account's delete command or permanently delete the email.
+
+The selected action runs only after a successful copy, whether you click a notification or enable automatic copying. A failed copy never moves the email. If the action fails, a notification explains the failure; the code remains copied and no delete fallback is attempted.
+
+This feature requires the `messagesMove` permission. For server-backed accounts, archiving or moving to Trash may also synchronize the change to other devices. Configure an archive destination in Thunderbird before choosing Archive.
+
 #### Detection Configuration
 - **Regex patterns**: Define regular expressions to match verification codes
   - Default patterns match 4–8 digit numbers and 4–8 character codes containing both letters and digits

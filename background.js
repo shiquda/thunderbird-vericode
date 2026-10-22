@@ -8,6 +8,7 @@ let settings = {
 	notificationTimeout: 15000, // Notification display time (milliseconds)
 	enabled: true,
 	autoCopy: false,
+	postCopyAction: "none",
 	regexItems: [],
 	keywords: "",
 	excludedEmails: "",
@@ -17,6 +18,10 @@ let settings = {
 // Create verification code extractor instance
 let verificationExtractor = new VerificationCodeExtractor();
 
+// Only notifications created for copying have an entry here.
+const pendingCopies = new Map();
+let nextNotificationId = 0;
+
 // Load settings
 function loadSettings() {
 	return browser.storage.local
@@ -24,6 +29,7 @@ function loadSettings() {
 			notificationTimeout: 15000,
 			enabled: true,
 			autoCopy: false,
+			postCopyAction: "none",
 			regexItems: [],
 			keywords: "",
 			excludedEmails: "",
@@ -138,53 +144,102 @@ async function getName(message, verificationCode) {
 		});
 }
 
-// Create notification with copy functionality
-async function createNotificationWithCopyButton(message, verificationCode) {
-	const notificationId = "vericode-" + Date.now();
-
-	// Create notification, prompting user to click to copy verification code
-	browser.notifications.create(notificationId, {
-		type: "basic",
-		title: await getName(message, verificationCode),
-		message: `Verification code: ${verificationCode}.`,
-		iconUrl: browser.runtime.getURL("icons/icon-64.svg"),
-	});
-
-	browser.notifications.onClicked.addListener((notificationId) => {
-		navigator.clipboard.writeText(verificationCode);
-		browser.notifications.clear(notificationId);
-	});
-
-	// Set notification to automatically close
+async function createCodeNotification(message, text, verificationCode = null) {
+	const notificationId = `vericode-${Date.now()}-${nextNotificationId++}`;
+	if (verificationCode !== null) {
+		pendingCopies.set(notificationId, { message, verificationCode, processing: false });
+	}
+	try {
+		await browser.notifications.create(notificationId, {
+			type: "basic",
+			title: await getName(message, verificationCode || "Thunderbird Vericode"),
+			message: text,
+			iconUrl: browser.runtime.getURL("icons/icon-64.svg"),
+		});
+	} catch (error) {
+		pendingCopies.delete(notificationId);
+		throw error;
+	}
 	if (settings.notificationTimeout > 0) {
 		setTimeout(() => {
-			browser.notifications.clear(notificationId);
+			pendingCopies.delete(notificationId);
+			browser.notifications.clear(notificationId).catch(console.error);
 		}, settings.notificationTimeout);
+	}
+	return notificationId;
+}
+
+// Move explicitly to Trash instead of using delete(), whose behavior depends
+// on the account's deletion settings and may permanently delete a message.
+async function processCopiedMessage(messageId, action) {
+	if (action === "none") return;
+	if (action === "archive") {
+		await browser.messages.archive([messageId]);
+		return;
+	}
+	if (action !== "trash") throw new Error("Unknown post-copy action");
+
+	const message = await browser.messages.get(messageId);
+	const accountId = message.folder?.accountId;
+	if (!accountId) throw new Error("The message does not belong to a mail account");
+	const account = await browser.accounts.get(accountId, true);
+	const folders = [...(account.folders || account.rootFolder?.subFolders || [])];
+	const trashFolders = [];
+	while (folders.length) {
+		const folder = folders.pop();
+		if (folder.type === "trash" || folder.specialUse?.includes("trash")) {
+			trashFolders.push(folder);
+		}
+		folders.push(...(folder.subFolders || []));
+	}
+	if (trashFolders.length !== 1) {
+		throw new Error("The account does not have a unique Trash folder");
+	}
+	const trash = trashFolders[0];
+	if (trash.path === message.folder.path) return;
+	await browser.messages.move([messageId], trash.id || trash);
+}
+
+// Snapshot the chosen action before copying; settings changes during the
+// clipboard operation must not turn an in-flight copy into a different action.
+async function copyCodeAndProcessMessage(message, verificationCode) {
+	let copied = false;
+	try {
+		// Read persisted settings rather than a possibly stale background cache.
+		const { postCopyAction: action } = await browser.storage.local.get({ postCopyAction: "none" });
+		await navigator.clipboard.writeText(verificationCode);
+		copied = true;
+		await processCopiedMessage(message.id, action);
+		return true;
+	} catch (error) {
+		console.error("Failed to copy or process verification email:", error);
+		const text = copied
+			? "Code copied, but the email could not be processed. Check the email and your account settings."
+			: "Could not copy the code. The email was not moved. Open the email to copy it manually.";
+		await createCodeNotification(message, text);
+		return false;
 	}
 }
 
-async function autoCopyToClipboard(message, verificationCode) {
+async function handleNotificationClick(notificationId) {
+	const pending = pendingCopies.get(notificationId);
+	if (!pending || pending.processing) return;
+	pending.processing = true;
 	try {
-		await navigator.clipboard.writeText(verificationCode);
-		console.log("Automatically wrote verification code to clipboard");
-		const notificationId = "vericode-" + Date.now();
+		await copyCodeAndProcessMessage(pending.message, pending.verificationCode);
+	} finally {
+		pendingCopies.delete(notificationId);
+		await browser.notifications.clear(notificationId);
+	}
+}
 
-		// Create notification, prompting user to click to copy verification code
-		browser.notifications.create(notificationId, {
-			type: "basic",
-			title: await getName(message, verificationCode),
-			message: "Wrote Verification code to clipboard: " + verificationCode,
-			iconUrl: browser.runtime.getURL("icons/icon-64.svg"),
-		});
+async function createNotificationWithCopyButton(message, verificationCode) {
+	return createCodeNotification(message, `Verification code: ${verificationCode}.`, verificationCode);
+}
 
-		// Set notification to automatically close
-		if (settings.notificationTimeout > 0) {
-			setTimeout(() => {
-				browser.notifications.clear(notificationId);
-			}, settings.notificationTimeout);
-		}
-	} catch (error) {
-		console.log("Error saving clipboard: " + error.message);
+async function autoCopyToClipboard(message, verificationCode) {
+	if (await copyCodeAndProcessMessage(message, verificationCode)) {
+		await createCodeNotification(message, `Wrote verification code to clipboard: ${verificationCode}`);
 	}
 }
 
@@ -219,6 +274,12 @@ async function init() {
 
 	// Listen for new mail events
 	browser.messages.onNewMailReceived.addListener(handleNewMail);
+	browser.notifications.onClicked.addListener((notificationId) => {
+		handleNotificationClick(notificationId).catch(console.error);
+	});
+	browser.notifications.onClosed.addListener((notificationId) => {
+		pendingCopies.delete(notificationId);
+	});
 	browser.storage.onChanged.addListener((_, __) => {
 		loadSettings();
 	});

@@ -31,6 +31,17 @@
       <div class="description">Time before notification automatically closes (0 means no auto-close)</div>
     </div>
     
+    <h2>After Copying a Code</h2>
+    <div class="form-group">
+      <label for="postCopyAction">Email action:</label>
+      <select id="postCopyAction" name="postCopyAction">
+        <option value="none">Leave email unchanged</option>
+        <option value="archive">Archive email</option>
+        <option value="trash">Move email to Trash</option>
+      </select>
+      <div class="description">Applies after a successful copy, including automatic copying. Archive uses your account's archive settings. Trash moves the email to that account's Trash folder.</div>
+    </div>
+
     <h2>Verification Code Detection Settings</h2>
     
     <div class="form-group regex-list-container">
