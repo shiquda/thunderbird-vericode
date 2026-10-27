@@ -325,3 +325,20 @@ test("A safety disclaimer does not delete a code delivered above it", () => {
 	const text = "Your verification code is 908172.\n\nNever share this code. If you did not request it, contact support.";
 	assert.equal(extractor.extractVerificationCode(text), "908172");
 });
+
+test("The test panel reports the same decision as detection", async () => {
+	const extractor = new VerificationCodeExtractor();
+
+	// A delivery label satisfies the keyword requirement in both paths.
+	const labelled = await extractor.testExtraction("您的验证码：123456");
+	assert.equal(labelled.success, true);
+	assert.equal(labelled.code, extractor.extractVerificationCode("您的验证码：123456"));
+
+	// Too few keywords is reported as such, not as a pattern failure.
+	const thin = await extractor.testExtraction("Here is some text with only code: 123456");
+	assert.equal(thin.reason, "insufficient_keywords");
+
+	// Rejected shapes report a detection failure instead.
+	const rejected = await extractor.testExtraction("Verification login notice 4101 Yonge Street");
+	assert.equal(rejected.reason, "no_code_found");
+});
