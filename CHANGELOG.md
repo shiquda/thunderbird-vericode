@@ -23,6 +23,10 @@
 - Support excluding messages by content regex patterns.
 - Update test area to validate exclusion rules.
 
+## 0.0.8
+
+- Make the settings test panel report the same decision as live detection, including the delivery-label exemption from the keyword count, and name too few keywords instead of blaming the patterns.
+
 ## 0.0.7
 
 - Detect mixed letter-digit verification codes and recognize authentication and one-time password messages (#9).
