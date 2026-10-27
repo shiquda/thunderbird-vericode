@@ -23,7 +23,7 @@
 - Support excluding messages by content regex patterns.
 - Update test area to validate exclusion rules.
 
-## Unreleased
+## 0.0.7
 
 - Detect mixed letter-digit verification codes and recognize authentication and one-time password messages (#9).
 - Reduce false matches from street addresses, postal codes, phone numbers, and contextual years; preserve explicitly labeled codes that resemble those formats.
