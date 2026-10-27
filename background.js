@@ -21,9 +21,11 @@ let verificationExtractor = new VerificationCodeExtractor();
 // Only notifications created for copying have an entry here.
 const pendingCopies = new Map();
 let nextNotificationId = 0;
+let settingsLoadVersion = 0;
 
 // Load settings
 function loadSettings() {
+	const version = ++settingsLoadVersion;
 	return browser.storage.local
 		.get({
 			notificationTimeout: 15000,
@@ -36,6 +38,7 @@ function loadSettings() {
 			excludeRegex: "",
 		})
 		.then((result) => {
+			if (version !== settingsLoadVersion) return settings;
 			settings = result;
 			console.log("Settings loaded:", settings);
 

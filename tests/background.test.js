@@ -198,3 +198,23 @@ test("An older settings read cannot re-enable Trash after the user selects no ac
 	assert.equal(app.messages.get(1).folder.path, "/Inbox");
 	assert.deepEqual(app.state.operations, []);
 });
+
+test("Rapid settings changes cannot turn off the latest automatic-copy selection", async () => {
+	const app = await setup();
+	await app.evaluate(`(async () => {
+		const reads = [];
+		const originalGet = browser.storage.local.get;
+		browser.storage.local.get = () => new Promise(resolve => reads.push(resolve));
+		const older = loadSettings();
+		const newer = loadSettings();
+		reads[1]({ ...settings, autoCopy: true });
+		await newer;
+		reads[0]({ ...settings, autoCopy: false });
+		await older;
+		browser.storage.local.get = originalGet;
+		checkMessageForVerificationCode = async () => "654321";
+		await handleNewMail({}, { messages: [{ id: 2, author: "Second" }] });
+	})()`);
+	assert.equal(app.state.clipboard, "654321");
+	assert.deepEqual(app.state.operations, []);
+});

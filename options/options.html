@@ -1,93 +1,109 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Thunderbird Vericode Settings</title>
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
-  <h1>Thunderbird Vericode Settings</h1>
-  
+  <header class="page-header">
+    <h1>Verification Code Settings</h1>
+    <p id="status-message" class="status pending" role="status" aria-live="polite" aria-atomic="true">Loading settings&hellip;</p>
+  </header>
+
   <form id="options-form">
-    <div class="form-group">
-      <label for="enabled">
-        <input type="checkbox" id="enabled" name="enabled">
-        Enable verification code detection
-      </label>
-      <div class="description">Turn on or off the verification code detection feature</div>
-    </div>
+    <fieldset id="settings-fields" disabled>
 
-    <div class="form-group">
-      <label for="autoCopy">
-        <input type="checkbox" id="autoCopy" name="autoCopy">
-        Enable automatic copy into clipboard
-      </label>
-      <div class="description">Turn on or off the automatic copy into clipboard feature</div>
-    </div>
-    
-    <div class="form-group">
-      <label for="notificationTimeout">Notification display time (milliseconds):</label>
-      <input type="number" id="notificationTimeout" name="notificationTimeout" min="0" step="1000">
-      <div class="description">Time before notification automatically closes (0 means no auto-close)</div>
-    </div>
-    
-    <h2>After Copying a Code</h2>
-    <div class="form-group">
-      <label for="postCopyAction">Email action:</label>
-      <select id="postCopyAction" name="postCopyAction">
-        <option value="none">Leave email unchanged</option>
-        <option value="archive">Archive email</option>
-        <option value="trash">Move email to Trash</option>
-      </select>
-      <div class="description">Applies after a successful copy, including automatic copying. Archive uses your account's archive settings. Trash moves the email to that account's Trash folder.</div>
-    </div>
+      <section class="settings-section" aria-labelledby="general-heading">
+        <h2 id="general-heading">General</h2>
 
-    <h2>Verification Code Detection Settings</h2>
-    
-    <div class="form-group regex-list-container">
-      <label>Regex patterns:</label>
-      <div id="regexList" class="regex-list">
-        <!-- Regex patterns will be added here dynamically -->
+        <div class="form-group">
+          <label class="checkbox-label" for="enabled">
+            <input type="checkbox" id="enabled" name="enabled" aria-describedby="enabled-desc">
+            <span>Detect verification codes</span>
+          </label>
+          <p class="description" id="enabled-desc">Show a notification when a code arrives.</p>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label" for="autoCopy">
+            <input type="checkbox" id="autoCopy" name="autoCopy" aria-describedby="autoCopy-desc">
+            <span>Automatically copy codes</span>
+          </label>
+          <p class="description" id="autoCopy-desc">When off, click a code notification to copy it.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="notificationTimeout">Clear notifications after (seconds)</label>
+          <input type="number" id="notificationTimeout" name="notificationTimeout" min="0" step="any" inputmode="decimal" aria-describedby="notificationTimeout-desc">
+          <p class="description" id="notificationTimeout-desc">Set 0 to disable automatic clearing. On-screen banner duration follows your system settings.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="postCopyAction">After copying a code</label>
+          <select id="postCopyAction" name="postCopyAction" aria-describedby="postCopyAction-desc">
+            <option value="none">Leave email unchanged</option>
+            <option value="archive">Archive email</option>
+            <option value="trash">Move email to Trash</option>
+          </select>
+          <p class="description" id="postCopyAction-desc">Applies only after a code is successfully copied, including automatic copies. Archive follows the account's archive settings; Trash moves the message to the source account's Trash folder.</p>
+        </div>
+      </section>
+
+      <details class="settings-section">
+        <summary>Detection rules</summary>
+        <div class="details-body">
+          <div class="form-group regex-list-container">
+            <span class="label-text" id="regex-list-label">Regex patterns</span>
+            <div id="regexList" class="regex-list" role="group" aria-labelledby="regex-list-label">
+              <!-- Regex patterns will be added here dynamically -->
+            </div>
+            <button type="button" id="addRegex" class="add-button">Add regex pattern</button>
+            <p class="description">Patterns with lower priority numbers run first.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="keywords">Verification keywords</label>
+            <textarea id="keywords" name="keywords" rows="5" placeholder="verify, code, auth" aria-describedby="keywords-desc"></textarea>
+            <p class="description" id="keywords-desc">Separate keywords with commas. Detection needs two different keyword matches, or one match if your list contains only one keyword.</p>
+          </div>
+        </div>
+      </details>
+
+      <details class="settings-section">
+        <summary>Exclusions</summary>
+        <div class="details-body">
+          <div class="form-group">
+            <label for="excludedEmails">Excluded email addresses</label>
+            <textarea id="excludedEmails" name="excludedEmails" rows="3" placeholder="noreply@bank.com, info@company.com" aria-describedby="excludedEmails-desc"></textarea>
+            <p class="description" id="excludedEmails-desc">Messages from these email addresses are ignored (separated by commas).</p>
+          </div>
+
+          <div class="form-group">
+            <label for="excludeRegex">Exclusion regex patterns</label>
+            <textarea id="excludeRegex" name="excludeRegex" rows="3" placeholder=".*bank will never send.*confidential information.*" aria-describedby="excludeRegex-desc"></textarea>
+            <p class="description" id="excludeRegex-desc">Messages matching these regex patterns are ignored (one pattern per line). Patterns apply to the combined subject and body text.</p>
+          </div>
+        </div>
+      </details>
+
+      <div class="button-group">
+        <button type="button" id="restore-defaults">Restore defaults</button>
       </div>
-      <button type="button" id="addRegex" class="add-button">Add New Regex Pattern</button>
-      <div class="description">Regular expressions used to detect verification codes. Higher priority patterns are matched first.</div>
-    </div>
-    
-    <div class="form-group">
-      <label for="keywords">Verification keywords:</label>
-      <textarea id="keywords" name="keywords" rows="6" placeholder="Enter keywords separated by commas (e.g., verify, code, auth)"></textarea>
-      <div class="description">Separate keywords with commas. Detection needs two different keyword matches, or one match if your list contains only one keyword.</div>
-    </div>
-    
-    <h2>Exclusion Rules</h2>
-    
-    <div class="form-group">
-      <label for="excludedEmails">Excluded email addresses:</label>
-      <textarea id="excludedEmails" name="excludedEmails" rows="4" placeholder="Enter email addresses separated by commas (e.g., noreply@bank.com, info@company.com)"></textarea>
-      <div class="description">Messages from these email addresses will be ignored (separated by commas)</div>
-    </div>
-    
-    <div class="form-group">
-      <label for="excludeRegex">Exclusion regex patterns:</label>
-      <textarea id="excludeRegex" name="excludeRegex" rows="4" placeholder="Enter regex patterns separated by new lines (e.g., .*bank will never send.*confidential information.*)"></textarea>
-      <div class="description">Messages matching these regex patterns will be ignored (one pattern per line). These patterns will be applied to the combined subject and content text.</div>
-    </div>
-    
-    <div class="button-group">
-      <button type="submit">Save Settings</button>
-      <button type="button" id="restore-defaults">Restore Defaults</button>
-    </div>
+
+    </fieldset>
   </form>
-  
-  <div id="status-message" class="status"></div>
-  
-  <h2>Test Area</h2>
-  <div class="form-group test-area">
-    <label for="test-input">Paste the text to test:</label>
-    <textarea id="test-input" rows="8" placeholder="Paste the text containing the verification code to test your regex patterns and keywords"></textarea>
+
+  <section class="test-area" aria-labelledby="test-heading">
+    <h2 id="test-heading">Test your settings</h2>
+    <div class="form-group">
+      <label for="test-input">Paste text to test</label>
+      <textarea id="test-input" rows="6" placeholder="Paste a message containing a verification code to test your regex patterns and keywords."></textarea>
+    </div>
     <button type="button" id="test-button" class="test-button">Test</button>
     <div class="test-results-container">
-      <h3>Test results:</h3>
+      <h3>Test results</h3>
       <div id="test-results" class="test-results">
         <div id="no-result" class="no-result">No test yet</div>
         <div id="found-code" class="found-code" style="display:none;">
@@ -103,9 +119,9 @@
         </div>
       </div>
     </div>
-  </div>
-  
+  </section>
+
   <script src="../lib/verification-core.js"></script>
   <script src="options.js"></script>
 </body>
-</html> 
+</html>

@@ -56,6 +56,16 @@ const excludedEmailsInput = document.getElementById("excludedEmails");
 const excludeRegexInput = document.getElementById("excludeRegex");
 const statusMessage = document.getElementById("status-message");
 const restoreDefaultsButton = document.getElementById("restore-defaults");
+const settingsFields = document.getElementById("settings-fields");
+const pendingChanges = new Map();
+const validationErrors = new Map();
+let loaded = false;
+let saving = false;
+let saveTimer;
+let editRevision = 0;
+let storageError = false;
+let savedValues = {};
+let activePatch = null;
 
 // Test area elements
 const testInput = document.getElementById("test-input");
@@ -69,24 +79,30 @@ const matchedRegex = document.getElementById("matched-regex");
 const matchedKeywords = document.getElementById("matched-keywords");
 
 // Load settings
-function loadOptions() {
-	browser.storage.local
-		.get(DEFAULT_SETTINGS)
-		.then((result) => {
-			enabledCheckbox.checked = result.enabled;
-			autoCopyCheckbox.checked = result.autoCopy;
-			postCopyActionSelect.value = result.postCopyAction;
-			notificationTimeoutInput.value = result.notificationTimeout;
-			keywordsInput.value = result.keywords;
-			excludedEmailsInput.value = result.excludedEmails || "";
-			excludeRegexInput.value = result.excludeRegex || "";
+async function loadOptions() {
+	try {
+		const result = await browser.storage.local.get(DEFAULT_SETTINGS);
+		applyOptions(result);
+		savedValues = result;
+		loaded = true;
+		settingsFields.disabled = false;
+		updateSaveStatus();
+	} catch (error) {
+		console.error("Could not load settings:", error);
+		showStatus("Could not load settings. Reopen this page to try again.", "error");
+	}
+}
 
-			// Populate regex list
-			populateRegexList(result.regexItems || DEFAULT_REGEX_PATTERNS);
-		})
-		.catch((error) => {
-			showStatus("Error loading settings: " + error.message, "error");
-		});
+function applyOptions(values) {
+	enabledCheckbox.checked = values.enabled;
+	autoCopyCheckbox.checked = values.autoCopy;
+	postCopyActionSelect.value = values.postCopyAction;
+	notificationTimeoutInput.value = values.notificationTimeout / 1000;
+	keywordsInput.value = values.keywords;
+	excludedEmailsInput.value = values.excludedEmails || "";
+	excludeRegexInput.value = values.excludeRegex || "";
+	populateRegexList(values.regexItems?.length ? values.regexItems : DEFAULT_REGEX_PATTERNS);
+	for (const input of form.querySelectorAll("input, textarea")) input.setCustomValidity("");
 }
 
 // Populate regex list
@@ -99,6 +115,7 @@ function populateRegexList(items) {
 			regexList.appendChild(regexItem);
 		});
 	}
+	updateRegexLabels();
 }
 
 // Create regex item element
@@ -115,12 +132,15 @@ function createRegexItem(pattern, priority) {
 	patternInput.value = pattern;
 
 	// Create priority input
+	patternInput.setAttribute("aria-label", "Pattern");
 	const priorityInput = document.createElement("input");
 	priorityInput.type = "number";
 	priorityInput.className = "regex-priority";
 	priorityInput.min = "1";
 	priorityInput.placeholder = "Priority";
 	priorityInput.value = priority;
+	priorityInput.step = "1";
+	priorityInput.setAttribute("aria-label", "Pattern priority");
 
 	// Create delete button
 	const deleteButton = document.createElement("button");
@@ -129,11 +149,20 @@ function createRegexItem(pattern, priority) {
 	deleteButton.textContent = "Delete";
 	deleteButton.addEventListener("click", () => {
 		regexItem.remove();
+		updateRegexLabels();
+		queueSetting("regexItems", true);
 	});
 
-	// Append elements to container
-	regexItem.appendChild(patternInput);
-	regexItem.appendChild(priorityInput);
+	const patternLabel = document.createElement("label");
+	patternLabel.className = "regex-pattern-field";
+	patternLabel.textContent = "Pattern";
+	patternLabel.appendChild(patternInput);
+	const priorityLabel = document.createElement("label");
+	priorityLabel.className = "regex-priority-field";
+	priorityLabel.textContent = "Priority";
+	priorityLabel.appendChild(priorityInput);
+	regexItem.appendChild(patternLabel);
+	regexItem.appendChild(priorityLabel);
 	regexItem.appendChild(deleteButton);
 
 	return regexItem;
@@ -143,6 +172,9 @@ function createRegexItem(pattern, priority) {
 function addRegexItem() {
 	const newItem = createRegexItem("", regexList.children.length + 1);
 	regexList.appendChild(newItem);
+	newItem.querySelector(".regex-pattern").focus();
+	updateRegexLabels();
+	queueSetting("regexItems", false);
 }
 
 // Collect all regex items
@@ -162,79 +194,161 @@ function collectRegexItems() {
 	return items;
 }
 
-// Save settings
-function saveOptions(e) {
-	e.preventDefault();
+function updateRegexLabels() {
+	[...regexList.children].forEach((row, index) => {
+		row.querySelector(".regex-pattern").setAttribute("aria-label", `Pattern ${index + 1}`);
+		row.querySelector(".regex-priority").setAttribute("aria-label", `Priority for pattern ${index + 1}`);
+		row.querySelector(".delete-button").setAttribute("aria-label", `Remove pattern ${index + 1}`);
+	});
+}
 
-	// Validate timeout
-	const timeout = parseInt(notificationTimeoutInput.value, 10);
-	if (isNaN(timeout) || timeout < 0) {
-		showStatus(
-			"Notification display time must be a non-negative integer",
-			"error"
-		);
-		return;
+// Validate only the edited setting. An incomplete pattern must not stop the
+// automatic-copy switch or any other independent setting from being saved.
+function readSetting(key) {
+	if (key === "regexItems") {
+		if (!regexList.children.length) throw new Error("Add at least one detection pattern.");
+		let error;
+		const items = [...regexList.children].map((row, index) => {
+			const pattern = row.querySelector(".regex-pattern");
+			const priority = row.querySelector(".regex-priority");
+			pattern.setCustomValidity("");
+			priority.setCustomValidity("");
+			let message = "";
+			if (!pattern.value.trim()) {
+				message = `Complete pattern ${index + 1} or remove its row.`;
+			} else {
+				try { new RegExp(pattern.value.trim(), "g"); }
+				catch { message = `Pattern ${index + 1} is not a valid regular expression.`; }
+			}
+			if (message) {
+				pattern.setCustomValidity(message);
+				if (!error) error = message;
+			}
+			if (!Number.isSafeInteger(priority.valueAsNumber) || priority.valueAsNumber < 1) {
+				message = `Give pattern ${index + 1} a whole-number priority of 1 or higher.`;
+				priority.setCustomValidity(message);
+				if (!error) error = message;
+			}
+			return { pattern: pattern.value.trim(), priority: priority.valueAsNumber };
+		});
+		if (error) throw new Error(error);
+		return items;
 	}
-
-	// Collect regex items
-	const regexItems = collectRegexItems();
-
-	// Save settings
-	browser.storage.local
-		.set({
-			enabled: enabledCheckbox.checked,
-			autoCopy: autoCopyCheckbox.checked,
-			postCopyAction: postCopyActionSelect.value,
-			notificationTimeout: timeout,
-			regexItems: regexItems,
-			keywords: keywordsInput.value,
-			excludedEmails: excludedEmailsInput.value,
-			excludeRegex: excludeRegexInput.value,
-		})
-		.then(() => {
-			showStatus("Settings saved", "success");
-			console.log("Saved settings");
-		})
-		.catch((error) => {
-			showStatus("Error saving settings: " + error.message, "error");
-		});
+	const input = document.getElementById(key);
+	input.setCustomValidity("");
+	if (input.type === "checkbox") return input.checked;
+	if (key === "notificationTimeout") {
+		const milliseconds = Math.round(input.valueAsNumber * 1000);
+		if (!Number.isSafeInteger(milliseconds) || input.valueAsNumber < 0) {
+			const message = "Enter a notification duration of 0 seconds or more.";
+			input.setCustomValidity(message);
+			throw new Error(message);
+		}
+		return milliseconds;
+	}
+	if (key === "excludeRegex") {
+		for (const [index, pattern] of input.value.split("\n").entries()) {
+			if (!pattern.trim()) continue;
+			try { new RegExp(pattern.trim(), "i"); }
+			catch {
+				const message = `Exclusion pattern on line ${index + 1} is not valid.`;
+				input.setCustomValidity(message);
+				throw new Error(message);
+			}
+		}
+	}
+	return input.value;
 }
 
-// Restore default settings
+function settingForInput(input) {
+	if (regexList.contains(input)) return "regexItems";
+	return Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, input.id) ? input.id : null;
+}
+
+function queueSetting(key, immediate) {
+	if (!loaded || !key) return;
+	editRevision++;
+	try {
+		const value = readSetting(key);
+		const current = activePatch && Object.prototype.hasOwnProperty.call(activePatch, key)
+			? activePatch[key] : savedValues[key];
+		if (JSON.stringify(value) === JSON.stringify(current)) pendingChanges.delete(key);
+		else pendingChanges.set(key, value);
+		validationErrors.delete(key);
+		storageError = false;
+	} catch (error) {
+		pendingChanges.delete(key);
+		validationErrors.set(key, error.message);
+	}
+	clearTimeout(saveTimer);
+	updateSaveStatus();
+	if (immediate) {
+		void flushChanges();
+	} else {
+		saveTimer = setTimeout(flushChanges, 400);
+	}
+}
+
+async function flushChanges() {
+	clearTimeout(saveTimer);
+	if (saving || !pendingChanges.size) return;
+	const patch = Object.fromEntries(pendingChanges);
+	activePatch = patch;
+	const revision = editRevision;
+	pendingChanges.clear();
+	saving = true;
+	updateSaveStatus();
+	let failed = false;
+	try {
+		await browser.storage.local.set(patch);
+		Object.assign(savedValues, patch);
+		storageError = false;
+	} catch (error) {
+		console.error("Could not save settings:", error);
+		failed = true;
+		storageError = true;
+		for (const [key, value] of Object.entries(patch)) {
+			if (!pendingChanges.has(key) && !validationErrors.has(key)) pendingChanges.set(key, value);
+		}
+	} finally {
+		saving = false;
+		activePatch = null;
+		updateSaveStatus();
+		// Keep writes ordered. Edits made while a write was in progress always win.
+		// A failed write waits for another edit instead of retrying indefinitely.
+		if (pendingChanges.size && (!failed || editRevision !== revision)) void flushChanges();
+	}
+}
+
+function updateSaveStatus() {
+	if (validationErrors.size) {
+		showStatus(validationErrors.values().next().value + " Other settings save automatically.", "error");
+	} else if (storageError) {
+		showStatus("Could not save changes. Edit a setting to try again.", "error");
+	} else if (saving) {
+		showStatus("Saving…", "saving");
+	} else if (pendingChanges.size) {
+		showStatus("Waiting to save…", "pending");
+	} else {
+		showStatus("All changes saved", "success");
+	}
+}
+
 function restoreDefaults() {
-	// Update form with default values
-	enabledCheckbox.checked = DEFAULT_SETTINGS.enabled;
-	autoCopyCheckbox.checked = DEFAULT_SETTINGS.autoCopy;
-	postCopyActionSelect.value = DEFAULT_SETTINGS.postCopyAction;
-	notificationTimeoutInput.value = DEFAULT_SETTINGS.notificationTimeout;
-	keywordsInput.value = DEFAULT_SETTINGS.keywords;
-	excludedEmailsInput.value = DEFAULT_SETTINGS.excludedEmails;
-	excludeRegexInput.value = DEFAULT_SETTINGS.excludeRegex;
-
-	// Reset regex list
-	populateRegexList(DEFAULT_REGEX_PATTERNS);
-
-	// Save default settings to storage
-	browser.storage.local
-		.set(DEFAULT_SETTINGS)
-		.then(() => {
-			showStatus("Default settings restored", "success");
-		})
-		.catch((error) => {
-			showStatus("Error restoring default settings: " + error.message, "error");
-		});
+	if (!loaded || !window.confirm("Restore all settings? This replaces your detection and exclusion rules.")) return;
+	clearTimeout(saveTimer);
+	pendingChanges.clear();
+	validationErrors.clear();
+	storageError = false;
+	editRevision++;
+	applyOptions(DEFAULT_SETTINGS);
+	for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) pendingChanges.set(key, value);
+	void flushChanges();
 }
 
-// Show status message
 function showStatus(message, type) {
 	statusMessage.textContent = message;
 	statusMessage.className = "status " + type;
-	statusMessage.style.display = "block";
-
-	// Hide message after 5 seconds
-	setTimeout(() => {
-		statusMessage.style.display = "none";
-	}, 5000);
 }
 
 // Test verification code detection
@@ -252,15 +366,17 @@ async function testVerificationCode() {
 	const excludedEmailsText = excludedEmailsInput.value;
 	const excludeRegexText = excludeRegexInput.value;
 
-	// Check if we have at least one regex pattern
-	if (regexItems.length === 0) {
-		showStatus("请先添加至少一个正则表达式模式", "error");
+	try {
+		readSetting("regexItems");
+		readSetting("excludeRegex");
+	} catch (error) {
+		showTestResult("no-code", { message: error.message });
 		return;
 	}
 
 	// Check if we have keywords
 	if (!keywordsText || keywordsText.trim() === "") {
-		showStatus("请先添加关键词", "error");
+		showTestResult("no-code", { message: "Add verification keywords before testing." });
 		return;
 	}
 
@@ -284,7 +400,7 @@ async function testVerificationCode() {
 
 	// Wait for VerificationCodeExtractor to be loaded
 	if (typeof VerificationCodeExtractor === 'undefined') {
-		showStatus("验证核心库正在加载中，请稍后再试", "error");
+		showTestResult("no-code", { message: "The detection library is still loading. Try again shortly." });
 		return;
 	}
 
@@ -319,13 +435,13 @@ async function testVerificationCode() {
 				default:
 					showTestResult("no-code", { 
 						keywords: result.foundKeywords || [],
-						message: result.message || "未知错误"
+						message: result.message || "Could not test this text."
 					});
 			}
 		}
 	} catch (error) {
 		console.error("Test extraction error:", error);
-		showStatus("测试过程中发生错误: " + error.message, "error");
+		showTestResult("no-code", { message: "Could not test this text. Check your patterns and try again." });
 	}
 }
 
@@ -378,7 +494,25 @@ function showTestResult(result, data = {}) {
 
 // Event listeners
 document.addEventListener("DOMContentLoaded", loadOptions);
-form.addEventListener("submit", saveOptions);
+form.addEventListener("submit", (event) => {
+	event.preventDefault();
+	void flushChanges();
+});
+form.addEventListener("input", (event) => {
+	if (event.target.type !== "checkbox" && event.target.tagName !== "SELECT") {
+		queueSetting(settingForInput(event.target), false);
+	}
+});
+form.addEventListener("change", (event) => queueSetting(settingForInput(event.target), true));
+form.addEventListener("focusout", () => { void flushChanges(); });
+window.addEventListener("pagehide", () => {
+	clearTimeout(saveTimer);
+	if (pendingChanges.size) {
+		// Send the final patch before this document goes away. The storage API
+		// handles requests in order even when a previous write is still pending.
+		void browser.storage.local.set(Object.fromEntries(pendingChanges)).catch(console.error);
+	}
+});
 restoreDefaultsButton.addEventListener("click", restoreDefaults);
 addRegexButton.addEventListener("click", addRegexItem);
 testButton.addEventListener("click", testVerificationCode);
