@@ -49,16 +49,20 @@ A verification code detection plugin for Thunderbird that automatically detects 
 3. Find the "Thunderbird Vericode" plugin
 4. Click the "Options" button
 
+Changes save automatically. Switches and selections apply immediately; text fields save after a short pause or when you leave the field. Check the status at the top of the page to confirm a change was saved. Invalid patterns or values stay in the editor without replacing the last saved version; other valid settings can still be changed.
+
+Common controls appear first. Expand **Detection rules** or **Exclusions** to edit advanced settings. **Restore defaults** asks for confirmation before replacing your rules.
+
 ### Available Settings
 
 #### Basic Settings
-- **Enable verification code detection**: Turn the plugin on/off
-- **Enable automatic copy**: Automatically copy codes to clipboard (no click required)
-- **Notification display time**: How long notifications stay visible (0 = no auto-close)
+- **Detect verification codes**: Turn the plugin on/off.
+- **Automatically copy codes**: Copy codes to the clipboard without clicking a notification.
+- **Clear notifications after**: Time in seconds before the extension clears a notification (0 disables automatic clearing). The operating system controls on-screen banner duration.
 
 #### After Copying a Code
 
-Choose an **Email action** separately from automatic copying:
+Choose what happens **After copying a code**, separately from automatic copying:
 
 - **Leave email unchanged** (default): Copy the code without moving the email.
 - **Archive email**: Archive the email using Thunderbird's configured archive settings.
@@ -71,11 +75,11 @@ This feature requires the `messagesMove` permission. For server-backed accounts,
 #### Detection Configuration
 - **Regex patterns**: Define regular expressions to match verification codes
   - Default patterns match 4–8 digit numbers and 4–8 character codes containing both letters and digits
-  - Mixed letter-digit codes need nearby verification context; pure-letter codes require a custom pattern
+  - Mixed letter-digit codes need nearby verification context; pure-letter and grouped-digit codes are recognised only when an explicit delivery label is present
   - Each pattern has a priority (lower numbers = higher priority)
 - **Verification keywords**: Words that help identify verification code context
-  - Default includes: code, verif, login, authentication, password, 验证, 登录, etc.
-  - At least 2 different keyword matches are required, except a custom list containing only one keyword
+  - Default includes: code, verif, login, authentication, password, 验证, 登录, 驗證碼, 登入, etc.
+  - At least 2 different keyword matches are required, except a custom list containing only one keyword, or when the email carries an explicit delivery label such as `验证码：`
 - **Test Area**: Paste sample email text to test your configuration
 
 Saved keyword and regex lists are preserved. If you previously saved numeric-only patterns, add a mixed letter-digit pattern such as `\b(?=[A-Za-z0-9]*[0-9])(?=[A-Za-z0-9]*[A-Za-z])[A-Za-z0-9]{4,8}\b` to enable those codes. Add `authentication` and `password` to an older keyword list for one-time password emails.
@@ -89,7 +93,7 @@ Saved keyword and regex lists are preserved. If you previously saved numeric-onl
 
 ### Testing Your Configuration
 
-1. In the settings page, scroll down to the "Test Area"
+1. In the settings page, open **Test your settings** below the configuration
 2. Paste a sample email text containing a verification code
 3. Click the "Test" button
 4. The results will show:
@@ -102,16 +106,20 @@ Saved keyword and regex lists are preserved. If you previously saved numeric-onl
 
 ## How Detection Works
 
-The plugin uses a sophisticated multi-step process:
+The plugin uses a deterministic, explainable process:
 
-1. **Keyword Detection**: Scans email subject and content for verification-related keywords
-2. **Context Requirement**: Requires two keyword matches, or one when the configured list has a single keyword
-3. **Pattern Matching**: Applies regex patterns to find potential verification codes
-4. **Candidate Filtering**: Rejects common street-address, postal-code, phone-number, date, and copyright-year matches; explicit verification code labels take precedence over shape-only exclusions
-5. **Selection**: Prefers candidates closer to relevant keywords, using pattern priority to break ties
-6. **Exclusion Filtering**: Applies sender and content-based exclusion rules
+1. **Keyword Detection**: Scans email subject and content for verification-related keywords, including Traditional Chinese forms
+2. **Pattern Matching**: Applies regex patterns to find potential verification codes
+3. **Delivery Evidence**: Grades each candidate by how it is presented, not only by distance:
+   - an explicit label beside the value (`verification code is`, `OTP:`, `验证码：`, `您的登入驗證碼為`) outranks a merely closer unrelated number
+   - a generic label (`code:`, `password:`, `token:`) is weak evidence and never bypasses address, phone, postal or amount exclusions
+   - grouped digits (`123-456`) and pure-letter codes are only accepted under an explicit delivery label, and pure letters never displace an ordinary numeric code
+4. **Candidate Filtering**: Rejects street-address, postal-code, phone-number, date, amount and account-suffix matches. A value inside a link is dropped only for that occurrence; if the same code also appears in the text, it is still found
+5. **Context Requirement**: At least two different verification words are needed, except when the configured list has a single keyword, or when a clear delivery label is present
+6. **Selection**: Prefers the strongest delivery evidence, then the closest verification word, then pattern priority
+7. **Exclusion Filtering**: Applies sender and content-based exclusion rules
 
-This approach minimizes false positives while maintaining high accuracy.
+Every extraction can report which rule accepted the value (`extractWithEvidence`), so detection remains explainable rather than a black box.
 
 ## Privacy Statement
 

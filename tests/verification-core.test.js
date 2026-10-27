@@ -243,3 +243,85 @@ test("Separator-only keyword settings do not bypass verification context", async
 	assert.equal(result.success, false);
 	assert.equal(result.reason, "insufficient_keywords");
 });
+
+test("An explicit delivery label outranks a nearer unrelated number", () => {
+	const extractor = new VerificationCodeExtractor();
+	const text = "Your login code was requested. Order 123456 shipped today.\nYour verification code is 908172.";
+	assert.equal(extractor.extractVerificationCode(text), "908172");
+});
+
+test("Local delivery binding reports which rule accepted the code", () => {
+	const extractor = new VerificationCodeExtractor();
+
+	const prefixed = extractor.extractWithEvidence("Your verification code is 908172.");
+	assert.deepEqual({ code: prefixed.code, tier: prefixed.tier }, { code: "908172", tier: 1 });
+
+	const suffixed = extractor.extractWithEvidence("Login verification. 908172 is your verification code.");
+	assert.deepEqual({ code: suffixed.code, tier: suffixed.tier }, { code: "908172", tier: 2 });
+
+	const unbound = extractor.extractWithEvidence("Verification login notice. Reference 908172.");
+	assert.equal(unbound.tier, 6);
+});
+
+test("A contradicting local label rejects that occurrence, not the whole message", () => {
+	const extractor = new VerificationCodeExtractor();
+	const text = "Your verification code is 908172. Order number: 771234.";
+	assert.equal(extractor.extractVerificationCode(text), "908172");
+
+	const onlyOrder = "Login verification notice. Order number: 771234.";
+	assert.equal(extractor.extractVerificationCode(onlyOrder), null);
+});
+
+test("A code duplicated inside a URL is still found at its body occurrence", () => {
+	const extractor = new VerificationCodeExtractor();
+	const text = "Login verification code: 908172. Confirm at https://example.invalid/verify?token=908172";
+	assert.equal(extractor.extractVerificationCode(text), "908172");
+});
+
+test("Grouped digits are only accepted under an explicit delivery label", () => {
+	const extractor = new VerificationCodeExtractor();
+	assert.equal(
+		extractor.extractVerificationCode("Your verification code is 908-172."),
+		"908172"
+	);
+	assert.equal(
+		extractor.extractVerificationCode("Verification login notice. Invoice 908-172 attached."),
+		null
+	);
+});
+
+test("Pure-letter codes need explicit binding and never beat numeric codes", () => {
+	const extractor = new VerificationCodeExtractor();
+	assert.equal(
+		extractor.extractVerificationCode("Your verification code is ZKFDLE."),
+		"ZKFDLE"
+	);
+	// Ordinary words around a generic keyword must not become a code.
+	assert.equal(
+		extractor.extractVerificationCode("Verification login notice. YOUR account is ready."),
+		null
+	);
+	// A bound alphabetic word must not displace a bound numeric code.
+	assert.equal(
+		extractor.extractVerificationCode("Your verification code is 908172. Thank you."),
+		"908172"
+	);
+});
+
+test("Traditional Chinese verification mail is detected", () => {
+	const extractor = new VerificationCodeExtractor();
+	assert.equal(extractor.extractVerificationCode("您的登入驗證碼為：723951"), "723951");
+	assert.equal(extractor.extractVerificationCode("請輸入以下驗證碼：554812"), "554812");
+});
+
+test("Eight-digit date tokens in URLs are not delivered codes", () => {
+	const extractor = new VerificationCodeExtractor();
+	const tracking = "登入驗證通知 authenticator migration https://example.invalid/p?utm=mail-20240512&id=12";
+	assert.equal(extractor.extractVerificationCode(tracking), null);
+});
+
+test("A safety disclaimer does not delete a code delivered above it", () => {
+	const extractor = new VerificationCodeExtractor();
+	const text = "Your verification code is 908172.\n\nNever share this code. If you did not request it, contact support.";
+	assert.equal(extractor.extractVerificationCode(text), "908172");
+});

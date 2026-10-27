@@ -34,3 +34,14 @@
 - Run post-copy mail actions only after clipboard success, including automatic copying; report failures without falling back to deletion.
 - Route each notification click to its own email and code, with protection against repeated clicks while copying.
 - Request `messagesMove` permission for the optional archive and Trash actions.
+- Save settings automatically: switches and selections apply immediately; text edits save after a short pause or on leaving the field, with persistent saving and error feedback.
+- Preserve saved values while regex patterns or numeric inputs are incomplete, without blocking changes to other settings.
+- Use ordered writes and ignore stale background reads so rapid setting changes keep the latest automatic-copy selection.
+- Compact the settings page with collapsible advanced rules, readable pattern priorities, responsive light/dark themes, and notification time shown in seconds.
+- Confirm before restoring defaults and remove the manual Save Settings button.
+- Rank candidates by delivery evidence instead of nearest keyword alone: an explicit verification/one-time-code label next to the value now outranks a merely closer unrelated number.
+- Treat generic labels such as `code:` or `password:` as weak evidence so they no longer bypass address, phone, postal and amount exclusions.
+- Reject a contradicting occurrence instead of the whole message, and keep the code when the same value also appears in a clean position (for example in both the body and a link).
+- Add Traditional Chinese verification vocabulary (`驗證碼`, `登入`, `校驗`, `認證`, `動態`, `授權` and related phrases).
+- Accept grouped digits (`123-456`) and pure-letter codes only under an explicit delivery label, never ahead of an ordinary numeric code.
+- Limit unbound numeric candidates to 100 characters from the nearest verification word, and ignore eight-digit `YYYYMMDD` values that are not delivered codes.
