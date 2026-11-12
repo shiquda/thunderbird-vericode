@@ -1,3 +1,9 @@
+## 0.0.9
+
+- Rename the add-on to `Vericode - Auto Detect & Copy Email Codes`. The notification fallback title and the settings page title now say Vericode.
+- Require Thunderbird 137.0 or later, matching the 0.0.9 already published on Thunderbird Add-ons.
+- No detection changes. This aligns the repository with that published release.
+
 ## 0.0.1
 
 - First version🎉
