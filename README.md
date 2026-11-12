@@ -1,6 +1,10 @@
-# Thunderbird Vericode
+# Vericode for Thunderbird
 
-A verification code detection plugin for Thunderbird that automatically detects verification codes in received emails and provides convenient copy functionality.
+Vericode is a Thunderbird add-on that spots verification codes (one-time login codes, OTP) in new emails, shows a notification, and copies the code with one click — or automatically. Detection runs locally; nothing is sent to a server. 中文验证码邮件同样适用。
+
+**[Install from Thunderbird Add-ons](https://addons.thunderbird.net/thunderbird/addon/thunderbird-vericode/)**
+
+Requires Thunderbird 137 or later.
 
 ## Features
 
@@ -12,32 +16,11 @@ A verification code detection plugin for Thunderbird that automatically detects 
 - **Test Area**: Built-in testing area to validate your configuration before using
 - **Privacy-Focused**: Runs entirely locally with no data transmission to external servers
 
-## Installation
-
-### From Source Code
-
-1. Download or clone this repository to your local machine
-2. Open Thunderbird
-3. Click Menu -> Add-ons and Themes
-4. Click the gear icon and select "Install Add-on From File..."
-5. Browse to the root directory of this project and select the `manifest.json` file
-6. Confirm the installation
-
-### From Released Version
-
-1. Go to the [releases page](https://github.com/shiquda/thunderbird-vericode/releases)
-2. Download the latest `.xpi` file
-3. Open Thunderbird
-4. Click Menu -> Add-ons and Themes
-5. Click the gear icon and select "Install Add-on From File..."
-6. Select the downloaded `.xpi` file
-7. Confirm the installation
-
 ## How to Use
 
 ### Basic Usage
 
-1. After installing the plugin, it will automatically detect verification codes in received emails
+1. After installing the add-on, it will automatically detect verification codes in received emails
 2. When a verification code is detected, a system notification will appear with the sender name and the detected code
 3. Click the notification to copy the verification code to your clipboard
 4. You can then paste the verification code wherever needed
@@ -46,8 +29,10 @@ A verification code detection plugin for Thunderbird that automatically detects 
 
 1. Open Thunderbird
 2. Click Menu -> Add-ons and Themes
-3. Find the "Thunderbird Vericode" plugin
+3. Find Vericode
 4. Click the "Options" button
+
+![Vericode settings page, with detection and automatic copying enabled](docs/images/settings.png)
 
 Changes save automatically. Switches and selections apply immediately; text fields save after a short pause or when you leave the field. Check the status at the top of the page to confirm a change was saved. Invalid patterns or values stay in the editor without replacing the last saved version; other valid settings can still be changed.
 
@@ -102,6 +87,8 @@ Saved keyword and regex lists are preserved. If you previously saved numeric-onl
    - Which keywords were found
    - Any exclusion reasons
 
+![Vericode test panel showing that 482913 was detected in a sample email](docs/images/test-panel.png)
+
 **Important**: The test area now uses the **exact same algorithm** as the actual detection, ensuring your tests accurately reflect real behavior.
 
 ## How Detection Works
@@ -129,6 +116,27 @@ Every extraction can report which rule accepted the value (`extractWithEvidence`
 - No telemetry or analytics are collected
 
 ## Development
+
+### Manual install
+
+#### From Source Code
+
+1. Download or clone this repository to your local machine
+2. Open Thunderbird
+3. Click Menu -> Add-ons and Themes
+4. Click the gear icon and select "Install Add-on From File..."
+5. Browse to the root directory of this project and select the `manifest.json` file
+6. Confirm the installation
+
+#### From Released Version
+
+1. Go to the [releases page](https://github.com/shiquda/thunderbird-vericode/releases)
+2. Download the latest `.xpi` file
+3. Open Thunderbird
+4. Click Menu -> Add-ons and Themes
+5. Click the gear icon and select "Install Add-on From File..."
+6. Select the downloaded `.xpi` file
+7. Confirm the installation
 
 ### Building from Source
 
