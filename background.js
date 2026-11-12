@@ -1,5 +1,5 @@
 /**
- * Thunderbird Vericode - Verification code detection plugin
+ * Vericode - Verification code detection plugin
  * Listens for new emails, detects verification codes, and adds copy functionality to system notifications
  */
 
@@ -155,7 +155,7 @@ async function createCodeNotification(message, text, verificationCode = null) {
 	try {
 		await browser.notifications.create(notificationId, {
 			type: "basic",
-			title: await getName(message, verificationCode || "Thunderbird Vericode"),
+			title: await getName(message, verificationCode || "Vericode"),
 			message: text,
 			iconUrl: browser.runtime.getURL("icons/icon-64.svg"),
 		});
